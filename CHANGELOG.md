@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1 (2026-10-12)
+
+- Fix: persistent viewers are now scoped per project dir, so two projects no longer share (and hijack) the same OpenCode/AGY viewer.
+- Fix: mod `agent-runs-band` shows only the runs of the current session's project.
+
 ## 0.1.0 (2026-10-12)
 
 First public version.

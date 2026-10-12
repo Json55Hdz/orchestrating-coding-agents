@@ -33,6 +33,18 @@ let nowMs = 0
 let isPrimed = false
 let isTicking = false
 const seen = new Map<string, string>()
+let sessionCwd = ''
+
+const norm = (p: string) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+
+// A run belongs to this session when its target dir is the session's cwd or nested with it (either way).
+function sameProject(target: string, cwd: string): boolean {
+  const t = norm(target)
+  const c = norm(cwd)
+  if (!t || !c) return false
+
+  return t === c || t.startsWith(`${c}\\`) || c.startsWith(`${t}\\`)
+}
 
 // PIDs of the PowerShell processes that run workers; null when tasklist can't be read
 async function livePids($: any): Promise<Set<number> | null> {
@@ -68,6 +80,13 @@ async function scan($: any): Promise<Run[]> {
     const startMs = new Date(+m[2], +m[3] - 1, +m[4], +m[5], +m[6], +m[7]).getTime()
     if (nowMs - startMs > SCAN_WINDOW_MS) continue
     const dir = `${base}\\${entry.name}`
+    let target = ''
+    try {
+      target = String(await $.fs.read(`${dir}\\target-dir`)).trim()
+    } catch {
+      target = ''
+    }
+    if (!sameProject(target, sessionCwd)) continue // another project's run (or one we can't attribute)
     const backend = (await $.fs.exists(`${dir}\\inbox`)) ? 'agy' : 'opencode'
     let status = 'RUNNING'
     let turn = 0
@@ -143,6 +162,7 @@ async function refresh($: any): Promise<void> {
 
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
+    sessionCwd = String(e.cwd ?? '')
     if (!isTicking) {
       isTicking = true
       void refresh($)

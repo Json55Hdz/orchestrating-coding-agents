@@ -57,10 +57,11 @@ test('shows a live run, then toasts and shows done when done.json appears', asyn
   const run = 'demo-20261012-115900'
   const files = new Map<string, string>()
   const w = fakeWorld(on, run, files, () => [4242])
+  files.set(`${w.dir}\\target-dir`, 'C:\\T\\proj')
   files.set(`${w.dir}\\worker.pid`, '4242\r\n')
   files.set(`${w.dir}\\out.log`, 'x')
 
-  await $.session.start({ cwd: 'C:/T' })
+  await $.session.start({ cwd: 'C:/T/proj' })
   await w.clock.advance(3100)
   const ui = await $.ui.mount({ plugin: 'agent-runs-band', surface: 'terminal', ...BAND })
   expect(await ui.find({ type: 'Text', text: /demo/ })).toBeDefined()
@@ -78,14 +79,36 @@ test('a run whose worker died (window closed) shows as closed, not running', asy
   const run = 'gone-20261012-115900'
   const files = new Map<string, string>()
   const w = fakeWorld(on, run, files, () => [1111])
+  files.set(`${w.dir}\\target-dir`, 'C:\\T\\proj')
   files.set(`${w.dir}\\worker.pid`, '999\r\n')
   files.set(`${w.dir}\\out.log`, 'x')
 
-  await $.session.start({ cwd: 'C:/T' })
+  await $.session.start({ cwd: 'C:/T/proj' })
   await w.clock.advance(3100)
   const ui = await $.ui.mount({ plugin: 'agent-runs-band', surface: 'terminal', ...BAND })
   expect(await ui.find({ type: 'Text', text: /closed/ })).toBeDefined()
   expect(await ui.find({ type: 'Text', text: /running/ })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('runs of another project are not shown', async ($, on) => {
+  const run = 'other-20261012-115900'
+  const files = new Map<string, string>()
+  const w = fakeWorld(on, run, files, () => [4242])
+  on('ui.render', { component: 'AbovePrompt' }, ($$, e) => {
+    const { Text } = $$.ui.resolve(e)
+
+    return <Text>base-band</Text>
+  })
+  files.set(`${w.dir}\\target-dir`, 'C:\\Elsewhere\\proj')
+  files.set(`${w.dir}\\worker.pid`, '4242\r\n')
+  files.set(`${w.dir}\\out.log`, 'x')
+
+  await $.session.start({ cwd: 'C:/T/proj' })
+  await w.clock.advance(3100)
+  const ui = await $.ui.mount({ plugin: 'agent-runs-band', surface: 'terminal', ...BAND })
+  expect(await ui.find({ type: 'Text', text: /other/ })).toBeUndefined()
+  expect(w.toasts.length).toBe(0)
   await ui.unmount()
 })
 
@@ -100,7 +123,7 @@ test('a run that never started (no worker.pid) is not listed once past startup',
   })
   files.set(`${w.dir}\\brief.md`, 'x')
 
-  await $.session.start({ cwd: 'C:/T' })
+  await $.session.start({ cwd: 'C:/T/proj' })
   await w.clock.advance(3100)
   const ui = await $.ui.mount({ plugin: 'agent-runs-band', surface: 'terminal', ...BAND })
   expect(await ui.find({ type: 'Text', text: /base-band/ })).toBeDefined()

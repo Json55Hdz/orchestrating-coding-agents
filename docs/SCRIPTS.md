@@ -19,7 +19,7 @@ Start a task. Prints `VIEWER=...` and `RUN_DIR=<path>`, then returns (about 10 s
 | `-BriefFile` | required | File with the full task brief |
 | `-Model` | **required** | Backend model id (`provider/model` for OpenCode, the id from `agy models`). Deliberately mandatory: the user chooses |
 | `-Name` | `task` | Short name, used for the run folder, the session and the tab title |
-| `-Slot` | `main` | Viewer slot; use different slots for parallel tasks |
+| `-Slot` | `main` | Viewer slot within the project (viewers are already isolated per project dir); use different slots for parallel tasks in the same project |
 | `-Resume` | off | Continue the backend's last session in `-Dir` |
 | `-NoWindow` | off | Don't open/reuse a viewer tab |
 | `-TimeoutMin` | `30` | Max minutes per turn (fractions allowed) |

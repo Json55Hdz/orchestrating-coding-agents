@@ -37,7 +37,7 @@ Everything about one dispatch lives in `%TEMP%\agent-runs\<name>-<yyyyMMdd>-<HHm
 | `full.diff` | Written by `review.ps1`: the complete diff, read on demand |
 | `last-response.txt` | AGY: the last turn's reply |
 
-`%TEMP%\agent-runs\slots\` holds the persistent-viewer state (`<backend>-<slot>.alive|cur|queue`).
+`%TEMP%\agent-runs\slots\` holds the persistent-viewer state (`<backend>-<project>-<hash>-<slot>.alive|cur|queue`; one viewer per project dir).
 
 ## Design decisions (and the failures behind them)
 

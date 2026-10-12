@@ -4,7 +4,8 @@
 #   AGY:      no server/attach exists, so a persistent viewer tab runs the worker inline
 #             (the real process output, live) - not a tail of a file.
 # The viewer tab is opened only if it is not already alive; later dispatches reuse it.
-# Use -Slot <name> for a second concurrent viewer (parallel tasks). Prints RUN_DIR=...;
+# Viewers are scoped per project dir (two projects never share a viewer).
+# Use -Slot <name> for a second concurrent viewer within the same project (parallel tasks). Prints RUN_DIR=...;
 # completion signal is <RUN_DIR>\done.json (see wait.ps1).
 param(
     [Parameter(Mandatory)][ValidateSet('opencode','agy')][string]$Backend,
@@ -36,6 +37,10 @@ if ($LASTEXITCODE -eq 0 -and $bc) { Set-Content (Join-Path $run 'base-commit') $
 $prompt = "Your full task brief is in the file $brief . Read it first, then do exactly what it says. Report in the format it asks for."
 $url = "http://127.0.0.1:$Port"
 $slots = Join-Path $env:TEMP 'agent-runs\slots'
+# Viewers are per project: the slot is scoped by the target dir so two projects never share (and hijack) a viewer.
+$sha = [System.Security.Cryptography.SHA1]::Create()
+$h6  = -join ($sha.ComputeHash([Text.Encoding]::UTF8.GetBytes($Dir.ToLowerInvariant())) | Select-Object -First 3 | ForEach-Object { $_.ToString('x2') })
+$Slot = "{0}-{1}-{2}" -f ((Split-Path $Dir -Leaf) -replace '[^\w\-]','_'),$h6,$Slot
 $key = "$Backend-$Slot"
 New-Item -ItemType Directory -Force $slots | Out-Null
 

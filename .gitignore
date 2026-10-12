@@ -1,0 +1,14 @@
+# OS / editor
+Thumbs.db
+.DS_Store
+.vscode/
+.idea/
+
+# Local run artifacts (the scripts write to %TEMP%, but just in case)
+agent-runs/
+*.log
+*.tmp
+
+# Mod type cache written by Claude Code when the mod is loaded
+.claude-plugin/types/
+node_modules/

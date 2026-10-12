@@ -1,0 +1,10 @@
+{
+  "name": "orchestrating-coding-agents",
+  "version": "0.1.0",
+  "description": "Delegate grind work from Claude Code to OpenCode or the Antigravity CLI (AGY) with persistent live viewer tabs, mid-task messaging, a watchdog, compact review, and a status band above the prompt.",
+  "author": { "name": "Json55Hdz", "url": "https://github.com/Json55Hdz" },
+  "homepage": "https://github.com/Json55Hdz/orchestrating-coding-agents",
+  "repository": "https://github.com/Json55Hdz/orchestrating-coding-agents",
+  "license": "MIT",
+  "keywords": ["opencode", "antigravity", "agy", "delegation", "orchestration", "token-saving", "windows", "powershell"]
+}

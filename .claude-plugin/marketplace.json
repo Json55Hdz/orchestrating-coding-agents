@@ -1,0 +1,14 @@
+{
+  "name": "orchestrating-coding-agents",
+  "owner": {
+    "name": "Json55Hdz"
+  },
+  "description": "Claude Code plugin: delegate grind work to OpenCode or Antigravity CLI (AGY) with live viewers, messaging, a watchdog and a status band.",
+  "plugins": [
+    {
+      "name": "orchestrating-coding-agents",
+      "source": "./",
+      "description": "Delegate grind work from Claude Code to OpenCode or AGY with live viewer tabs, mid-task messaging, a watchdog, compact review, and a status band."
+    }
+  ]
+}

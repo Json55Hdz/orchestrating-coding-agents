@@ -9,11 +9,18 @@ $script:PsArgs = @(if ($script:IsWin) { '-NoProfile','-ExecutionPolicy','Bypass'
 function Get-RunsRoot {
     # %TEMP%\agent-runs on Windows. Elsewhere a per-user location, never the shared /tmp (another user could plant jobs):
     # $XDG_RUNTIME_DIR, else $TMPDIR (private on macOS), else ~/.cache. The band mod uses the same order.
-    $t = if ($script:IsWin) { $env:TEMP } elseif ($env:XDG_RUNTIME_DIR) { $env:XDG_RUNTIME_DIR } elseif ($env:TMPDIR) { $env:TMPDIR } else { Join-Path $HOME '.cache' }
+    $tmp = $env:TMPDIR; if ($tmp -and ($tmp.TrimEnd('/') -in '/tmp','/var/tmp')) { $tmp = $null }   # shared sticky dirs are never private
+    $t = if ($script:IsWin) { $env:TEMP } elseif ($env:XDG_RUNTIME_DIR) { $env:XDG_RUNTIME_DIR } elseif ($tmp) { $tmp } else { Join-Path $HOME '.cache' }
     $r = Join-Path $t.TrimEnd('/', '\') 'agent-runs'
     if (-not $script:IsWin) {
-        if (-not (Test-Path $r)) { New-Item -ItemType Directory -Force $r | Out-Null }
-        & chmod 700 $r 2>$null
+        if (-not (Test-Path $r)) {
+            New-Item -ItemType Directory -Force (Split-Path $r -Parent) | Out-Null
+            & mkdir -m 700 $r   # no -p: fails if something already sits there
+            if ($LASTEXITCODE -ne 0 -and -not (Test-Path $r)) { throw "cannot create $r" }
+        }
+        # fail closed: a real directory (not a symlink), owned by us, mode 700
+        & sh -c 'test -d "$1" && ! test -L "$1" && test -O "$1" && chmod 700 "$1" && test -n "$(find "$1" -maxdepth 0 -perm 700)"' sh $r
+        if ($LASTEXITCODE -ne 0) { throw "$r is not a private directory owned by you (symlink, other owner or bad mode); refusing to use it. Remove it or set XDG_RUNTIME_DIR." }
     }
     $r
 }

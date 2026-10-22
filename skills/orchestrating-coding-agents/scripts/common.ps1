@@ -1,9 +1,47 @@
-# Shared helpers, dot-sourced by the other scripts.
+# Shared helpers, dot-sourced by the other scripts. Runs on Windows PowerShell 5.1 and on PowerShell 7 (pwsh) on macOS/Linux.
+$script:IsWin = ($PSVersionTable.PSVersion.Major -lt 6) -or [bool]$IsWindows
+$script:IsMac = (-not $script:IsWin) -and [bool]$IsMacOS
+
+# Executable used to launch the other scripts as child processes.
+$script:PsExe = if ($script:IsWin) { 'powershell.exe' } else { (Get-Process -Id $PID).Path }
+$script:PsArgs = @(if ($script:IsWin) { '-NoProfile','-ExecutionPolicy','Bypass' } else { '-NoProfile' })
+
+function Get-RunsRoot {
+    # %TEMP%\agent-runs on Windows, $TMPDIR/agent-runs (or /tmp) elsewhere; the band mod reads the same place.
+    $t = if ($script:IsWin) { $env:TEMP } elseif ($env:TMPDIR) { $env:TMPDIR } else { '/tmp' }
+    Join-Path $t.TrimEnd('/', '\') 'agent-runs'
+}
+
 function Resolve-Agy {
     # AGY_PATH env override, then the default install location, then PATH.
-    $c = @($env:AGY_PATH, (Join-Path $env:LOCALAPPDATA 'agy\bin\agy.exe')) |
-        Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
-    if (-not $c) { $g = Get-Command agy.exe -ErrorAction SilentlyContinue; if ($g) { $c = $g.Source } }
-    if (-not $c) { throw 'agy.exe not found. Install the Antigravity CLI or set the AGY_PATH environment variable to its full path.' }
+    $names = if ($script:IsWin) { @('agy.exe') } else { @('agy') }
+    $def = if ($script:IsWin) { Join-Path $env:LOCALAPPDATA 'agy\bin\agy.exe' } else { Join-Path $HOME '.local/bin/agy' }
+    $c = @($env:AGY_PATH, $def) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+    if (-not $c) { $g = Get-Command $names[0] -ErrorAction SilentlyContinue; if ($g) { $c = $g.Source } }
+    if (-not $c) { throw "$($names[0]) not found. Install the Antigravity CLI or set the AGY_PATH environment variable to its full path." }
     $c
+}
+
+# Command name of the OpenCode CLI ('opencode.cmd' is the npm shim on Windows); $null when it is not on PATH.
+function Resolve-OpenCode {
+    $n = if ($script:IsWin) { 'opencode.cmd' } else { 'opencode' }
+    if (Get-Command $n -ErrorAction SilentlyContinue) { $n } else { $null }
+}
+
+# Kill a process and everything under it (shims and child CLIs included).
+function Stop-Tree([int]$ProcId) {
+    if ($script:IsWin) { & taskkill.exe /PID $ProcId /T /F 2>&1 | Out-Null; return }
+    $kids = & pgrep -P $ProcId 2>$null
+    foreach ($k in $kids) { if ($k) { Stop-Tree ([int]$k) } }
+    Stop-Process -Id $ProcId -Force -ErrorAction SilentlyContinue
+}
+
+# True when a process whose command line contains all of the given fragments is running.
+function Test-CommandLineRunning([string[]]$Fragments) {
+    if ($script:IsWin) {
+        $q = Get-CimInstance Win32_Process | Where-Object { $c = $_.CommandLine; $c -and -not (@($Fragments | Where-Object { $c -notlike "*$_*" })) }
+        return [bool]$q
+    }
+    $q = & ps -axo args= 2>$null | Where-Object { $c = $_; -not (@($Fragments | Where-Object { $c -notlike "*$_*" })) }
+    [bool]$q
 }

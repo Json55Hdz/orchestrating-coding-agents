@@ -4,7 +4,7 @@
 
 Español: [README.es.md](README.es.md)
 
-**Status:** `0.1.0`, early. Works end to end on Windows 11 (see [what is verified](#what-is-verified-and-what-is-not)). MIT licensed.
+**Status:** `0.1.0`, early. Works end to end on Windows 11; macOS/Linux support is new and smoke-tested on Linux only (see [what is verified](#what-is-verified-and-what-is-not)). MIT licensed.
 
 ## What you get
 
@@ -19,7 +19,7 @@ Español: [README.es.md](README.es.md)
 
 ## Requirements
 
-- Windows 10/11 with **Windows PowerShell 5.1** (built in) and **Windows Terminal** (`wt.exe`, built into Windows 11). No Python, Node packages or other installs.
+- **Windows 10/11**: Windows PowerShell 5.1 (built in) and Windows Terminal (`wt.exe`). **macOS / Linux**: [PowerShell 7](https://aka.ms/powershell) (`pwsh`) and `git`; the viewer opens in Terminal.app (macOS) or your terminal emulator (Linux), or run headless with `-NoWindow`. The plugin picks the right shell by itself (`scripts/run.sh`). No Python or Node packages.
 - At least one backend, signed in:
   - **OpenCode**: `npm i -g opencode-ai`, then `opencode providers login`
   - **AGY / Antigravity CLI**: install it and run `agy` once to sign in (set `AGY_PATH` if it is not at `%LOCALAPPDATA%\agy\bin\agy.exe` or on `PATH`)

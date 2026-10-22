@@ -35,7 +35,13 @@ let isTicking = false
 const seen = new Map<string, string>()
 let sessionCwd = ''
 
-const norm = (p: string) => p.replace(/\//g, '\\').replace(/\\+$/, '').toLowerCase()
+// Windows paths are case-insensitive and use backslashes; compare everything with forward slashes.
+const isWin = (p: string) => /^[A-Za-z]:/.test(p) || p.includes('\\')
+const norm = (p: string) => {
+  const n = p.replace(/\\/g, '/').replace(/\/+$/, '')
+
+  return isWin(p) ? n.toLowerCase() : n
+}
 
 // A run belongs to this session when its target dir is the session's cwd or nested with it (either way).
 function sameProject(target: string, cwd: string): boolean {
@@ -43,12 +49,23 @@ function sameProject(target: string, cwd: string): boolean {
   const c = norm(cwd)
   if (!t || !c) return false
 
-  return t === c || t.startsWith(`${c}\\`) || c.startsWith(`${t}\\`)
+  return t === c || t.startsWith(`${c}/`) || c.startsWith(`${t}/`)
 }
 
-// PIDs of the PowerShell processes that run workers; null when tasklist can't be read
-async function livePids($: any): Promise<Set<number> | null> {
+// PIDs of the PowerShell processes that run workers; null when tasklist/ps can't be read
+async function livePids($: any, win: boolean): Promise<Set<number> | null> {
   try {
+    if (!win) {
+      const r = await $.process.run(['ps', '-A', '-o', 'pid=,comm='])
+      const pids = new Set<number>()
+      for (const line of String(r.stdout).split('
+')) {
+        const m = /^\s*(\d+)\s+.*pwsh/.exec(line)
+        if (m) pids.add(+m[1])
+      }
+
+      return pids
+    }
     const r = await $.process.run(['tasklist', '/FI', 'IMAGENAME eq powershell.exe', '/FO', 'CSV', '/NH'])
     const pids = new Set<number>()
     for (const line of String(r.stdout).split('\n')) {
@@ -62,9 +79,10 @@ async function livePids($: any): Promise<Set<number> | null> {
 }
 
 async function scan($: any): Promise<Run[]> {
-  const tmp = await $.env.get('TEMP')
-  if (!tmp) return []
-  const base = `${tmp}\\agent-runs`
+  const tmp = String((await $.env.get('TEMP')) || (await $.env.get('TMPDIR')) || '/tmp').replace(/[/\\]+$/, '')
+  const win = isWin(tmp)
+  const sep = win ? '\\' : '/'
+  const base = `${tmp}${sep}agent-runs`
   nowMs = await $.clock.now()
   let entries: { name: string; kind: string }[]
   try {
@@ -79,32 +97,32 @@ async function scan($: any): Promise<Run[]> {
     if (!m) continue
     const startMs = new Date(+m[2], +m[3] - 1, +m[4], +m[5], +m[6], +m[7]).getTime()
     if (nowMs - startMs > SCAN_WINDOW_MS) continue
-    const dir = `${base}\\${entry.name}`
+    const dir = `${base}${sep}${entry.name}`
     let target = ''
     try {
-      target = String(await $.fs.read(`${dir}\\target-dir`)).trim()
+      target = String(await $.fs.read(`${dir}${sep}target-dir`)).trim()
     } catch {
       target = ''
     }
     if (!sameProject(target, sessionCwd)) continue // another project's run (or one we can't attribute)
-    const backend = (await $.fs.exists(`${dir}\\inbox`)) ? 'agy' : 'opencode'
+    const backend = (await $.fs.exists(`${dir}${sep}inbox`)) ? 'agy' : 'opencode'
     let status = 'RUNNING'
     let turn = 0
     let tokens = 0
     let endMs = 0
     try {
-      const text: string = await $.fs.read(`${dir}\\done.json`)
+      const text: string = await $.fs.read(`${dir}${sep}done.json`)
       const d = JSON.parse(text.replace(/^﻿/, ''))
       status = String(d.status)
       turn = Number(d.turn) || 0
       tokens = Number(d.tokens) || 0
-      endMs = (await $.fs.stat(`${dir}\\done.json`)).mtimeMs
+      endMs = (await $.fs.stat(`${dir}${sep}done.json`)).mtimeMs
     } catch {
       // No done.json: running only if the worker process is really alive.
       // (Closing an AGY viewer window kills its worker; a run that never started has no worker.)
       let pid = 0
       try {
-        pid = parseInt(await $.fs.read(`${dir}\\worker.pid`), 10) || 0
+        pid = parseInt(await $.fs.read(`${dir}${sep}worker.pid`), 10) || 0
       } catch {
         pid = 0
       }
@@ -112,10 +130,10 @@ async function scan($: any): Promise<Run[]> {
         if (nowMs - startMs > STARTUP_MS) continue // never started: nothing to show
         status = 'STARTING'
       } else {
-        if (live === undefined) live = await livePids($)
+        if (live === undefined) live = await livePids($, win)
         let lastMs = startMs
         try {
-          lastMs = (await $.fs.stat(`${dir}\\out.log`)).mtimeMs
+          lastMs = (await $.fs.stat(`${dir}${sep}out.log`)).mtimeMs
         } catch {
           lastMs = startMs
         }

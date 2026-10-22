@@ -9,7 +9,7 @@ description: Use when a coding task needs real implementation, test runs, or ver
 
 You (Claude) plan, review, and gate risky actions. An external CLI agent (OpenCode or AGY) does the file edits, test runs and investigation in its own process on its own token budget; only its final report touches your context. Use `superpowers:brainstorming` / `writing-plans` / `subagent-driven-development` for the parts needing YOUR judgment — this skill replaces only the *implementer*.
 
-`<SKILL_DIR>` below means the folder containing this SKILL.md (the base directory shown when the skill loads); substitute its absolute path. First time on a machine, or if anything fails to launch: run `<SKILL_DIR>\scripts\preflight.ps1` and relay what it reports.
+`<SKILL_DIR>` below means the folder containing this SKILL.md (the base directory shown when the skill loads); substitute its absolute path. First time on a machine, or if anything fails to launch: run `sh "<SKILL_DIR>/scripts/run.sh" preflight` and relay what it reports.
 
 **Dispatch always goes through `scripts/dispatch.ps1`.** Do not hand-roll `Start-Process`/quoting/tail windows: that is what used to hang, garble prompts and fail to open windows. The scripts give you, every time:
 
@@ -27,13 +27,13 @@ You (Claude) plan, review, and gate risky actions. An external CLI agent (OpenCo
 | Completion signal | `done.json` once | `done.json` rewritten at the end of **every turn** (has `turn`, `tokens`, `conversation`, `lastResponse`) |
 | Models | `opencode models` | `agy models` |
 
-**Viewer tabs are persistent and reused.** Each backend has one long-lived tab (`opencode:main` / `agy:main`) in a Windows Terminal window named `agents`. `dispatch.ps1` opens it only if it isn't alive (`VIEWER=OK (opened)`), otherwise it feeds the open one (`VIEWER=OK (reused)`): OpenCode's tab re-attaches the TUI to the new session, AGY's tab runs the new job inline (jobs queue if it's busy). Use `-Slot <name>` for a second concurrent tab when running tasks in parallel. If the user closes the tab, the next dispatch reopens it. Don't type into OpenCode's tab; it's a view.
+**Viewer tabs are persistent and reused.** Each backend has one long-lived tab (`opencode:main` / `agy:main`) in a terminal window (Windows Terminal window named `agents`; Terminal.app on macOS; the first terminal emulator found on Linux, headless: use `-NoWindow` + `peek`). `dispatch.ps1` opens it only if it isn't alive (`VIEWER=OK (opened)`), otherwise it feeds the open one (`VIEWER=OK (reused)`): OpenCode's tab re-attaches the TUI to the new session, AGY's tab runs the new job inline (jobs queue if it's busy). Use `-Slot <name>` for a second concurrent tab when running tasks in parallel. If the user closes the tab, the next dispatch reopens it. Don't type into OpenCode's tab; it's a view.
 
 ## Model selection — always ask the user, every new task
 
 Never choose a model yourself, and never rely on a default: `dispatch.ps1` refuses to run without `-Model`. Before the first dispatch of each task:
 
-1. Run `powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\models.ps1"` (add `-Backend opencode|agy` if only one will be used). It queries OpenCode and AGY for what is authenticated right now.
+1. Run `sh "<SKILL_DIR>/scripts/run.sh" models` (add `-Backend opencode|agy` if only one will be used). It queries OpenCode and AGY for what is authenticated right now.
 2. Show the user the lists (both backends, as returned), then ask which model to use with `AskUserQuestion`: one question per backend that will be used. The tool allows at most 4 options, so offer the 3–4 most sensible ones from the list (e.g. a cheap/fast tier for mechanical grind, a stronger one for judgment calls) and let "Other" carry any model from the full list. Recommend one, first, labeled "(Recommended)".
 3. Pass the chosen id as `-Model` (OpenCode `provider/model`, AGY the id from the left column).
 
@@ -44,20 +44,20 @@ Follow-ups on the same task (`say.ps1`, `-Resume`) keep that model, so don't re-
 1. Write the brief to a file (below).
 2. Run dispatch (Bash tool, foreground — it returns in ~10 s):
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\dispatch.ps1" `
-  -Backend opencode|agy -Dir "<abs repo path>" -BriefFile "<abs brief path>" -Name "<short-name>" `
+```sh
+sh "<SKILL_DIR>/scripts/run.sh" dispatch \
+  -Backend opencode|agy -Dir "<abs repo path>" -BriefFile "<abs brief path>" -Name "<short-name>" \
   -Model "<chosen by the user>" [-Slot main] [-Resume] [-NoWindow] [-TimeoutMin 30] [-StallMin 10]
 ```
 
-   Output: `VIEWER=OK|...` and `RUN_DIR=<path>`. If `VIEWER` is not OK, tell the user plainly; the task may still be running (OpenCode) — check `RUN_DIR\out.log`.
+   Output: `VIEWER=OK|...` and `RUN_DIR=<path>`. If `VIEWER` is not OK, tell the user plainly; the task may still be running (OpenCode) — check `RUN_DIR/out.log`.
 3. Wait for completion with a **background** call (`run_in_background: true`), which notifies you when it exits:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\wait.ps1" -RunDir "<RUN_DIR>" -MaxMin 60
+```sh
+sh "<SKILL_DIR>/scripts/run.sh" wait -RunDir "<RUN_DIR>" -MaxMin 60
 ```
 
-4. Read `done.json`, then **Verify** (below). `STALLED`/`TIMEOUT`/`FAILED`: inspect the tail of `RUN_DIR\out.log`, then re-dispatch the same `-Name`/`-Dir` with `-Resume` and a brief saying "continue: finish the remaining steps". Don't wait silently past the watchdog and don't restart from scratch (resume keeps the agent's progress).
+4. Read `done.json`, then **Verify** (below). `STALLED`/`TIMEOUT`/`FAILED`: inspect the tail of `RUN_DIR/out.log`, then re-dispatch the same `-Name`/`-Dir` with `-Resume` and a brief saying "continue: finish the remaining steps". Don't wait silently past the watchdog and don't restart from scratch (resume keeps the agent's progress).
 
 Parallel tasks: dispatch several with different `-Name`s **and different `-Slot`s** (one viewer per slot; same slot = AGY jobs queue, OpenCode's viewer follows the latest). Rules below.
 
@@ -75,12 +75,11 @@ This skill replaces only the *implementer*; superpowers keeps the judgment steps
 
 Like `SendMessage` to a subagent: the message goes to the live session (OpenCode via its server, AGY via the worker's stdin), and the viewer tab shows it and the reply in real time. Use it to steer, answer a question, add scope, or interrupt, instead of waiting for it to finish and re-dispatching.
 
-```powershell
-$say = "<SKILL_DIR>\scripts\say.ps1"
-powershell -NoProfile -ExecutionPolicy Bypass -File $say -RunDir "<RUN_DIR>" -Text "also cover the empty-string case"   # fire and forget
-powershell -NoProfile -ExecutionPolicy Bypass -File $say -RunDir "<RUN_DIR>" -Text "what did you change so far?" -Wait   # prints its reply
-powershell -NoProfile -ExecutionPolicy Bypass -File $say -RunDir "<RUN_DIR>" -Last                                       # peek at its latest message
-powershell -NoProfile -ExecutionPolicy Bypass -File $say -RunDir "<RUN_DIR>" -Abort                                      # interrupt the current turn
+```sh
+sh "<SKILL_DIR>/scripts/run.sh" say -RunDir "<RUN_DIR>" -Text "also cover the empty-string case"   # fire and forget
+sh "<SKILL_DIR>/scripts/run.sh" say -RunDir "<RUN_DIR>" -Text "what did you change so far?" -Wait   # prints its reply
+sh "<SKILL_DIR>/scripts/run.sh" say -RunDir "<RUN_DIR>" -Last                                       # peek at its latest message
+sh "<SKILL_DIR>/scripts/run.sh" say -RunDir "<RUN_DIR>" -Abort                                      # interrupt the current turn
 ```
 
 OpenCode also works on finished sessions (new turn, full context), replacing `-Resume` there. AGY: `say.ps1` deletes `done.json` when it sends, so a waiter sees the new turn's result; if the worker already exited it prints `SESSION_ENDED` — then re-dispatch with `-Resume` (same `-Dir`/`-Name`). `-Abort` on AGY ends the session (no per-turn interrupt). Messages are instructions to an agent, so the same Verify and boundary rules apply.
@@ -110,10 +109,10 @@ Status (DONE|BLOCKED|NEEDS_CONTEXT) / files changed / one-line test summary / co
 
 ## Checking progress without burning tokens
 
-**Never read `RUN_DIR\out.log` directly** (raw JSON events, easily hundreds of KB). Use:
+**Never read `RUN_DIR/out.log` directly** (raw JSON events, easily hundreds of KB). Use:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\peek.ps1" -RunDir "<RUN_DIR>" [-Lines 15]
+```sh
+sh "<SKILL_DIR>/scripts/run.sh" peek -RunDir "<RUN_DIR>" [-Lines 15]
 ```
 
 It prints the status line (RUNNING / DONE / STALLED, tokens, seconds since last output) and the last N condensed steps (tool calls, what the agent said). Use it when a run seems slow or a watchdog status arrives.
@@ -122,8 +121,8 @@ It prints the status line (RUNNING / DONE / STALLED, tokens, seconds since last 
 
 Treat every "DONE" as an unverified claim. Start with the compact review, which also saves the COMPLETE diff to a file:
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "<SKILL_DIR>\scripts\review.ps1" -RunDir "<RUN_DIR>" [-Report "<agent report path>"]
+```sh
+sh "<SKILL_DIR>/scripts/run.sh" review -RunDir "<RUN_DIR>" [-Report "<agent report path>"]
 ```
 
 It lists commits the agent made since dispatch, files changed with +/- counts, untracked files, simple red flags, and the agent's report. The full diff is in `RUN_DIR\full.diff`: **read it (or `git diff <base> -- <file>`) whenever the summary leaves any doubt**, and always for logic-heavy or risky files. The summary is for deciding where to look, not a substitute for looking. Don't take "N tests pass" as proof the right thing was tested. If it says a review finding is wrong, check yourself before dismissing — and vice versa. Delegates have both fixed real bugs a brief introduced and wrongly dismissed correct findings.
@@ -152,5 +151,6 @@ Push, merge and deploy: confirm with the user first, review the diff yourself, t
 - **AGY:** needs the user-owned permission rule `Bash(agy --dangerously-skip-permissions:*)` (add via `/permissions`; you cannot grant it yourself and must not try to route around the classifier or edit `settings.json` to self-grant). Until it exists, the dispatch is refused. The worker runs `agy --print "" --input-format stream-json --output-format stream-json` and sends the brief as the first stream message; later messages come from `say.ps1`. AGY ignores the OS cwd, so the scripts always pass `--add-dir` (repo and run dir) plus `--project <name> --new-project`; the brief path in the prompt is absolute. Verify results against the real target folder, never `~/.gemini/antigravity-cli/scratch`. Stall/timeout are per turn (`-StallMin`, `-TimeoutMin`); `-IdleMin` (default 15) is how long the session stays open after a turn. AGY has no server/attach and its interactive TUI can't be driven from outside; `--remote-control` only opens a Google-cloud web tunnel for interactive sessions (not `--print`). To inspect a finished conversation in the real TUI by hand: `agy --conversation <id>` (id is in `done.json`); don't open it while a worker is writing to the same conversation.
 - **`antigravity-ide`** is a different binary (VS-Code-fork IDE), unvalidated for this pattern; use `agy`.
 - **Other CLIs:** check `<tool> --help`; if there is no scriptable run mode it doesn't fit.
+- **Cross-platform:** always launch scripts through `scripts/run.sh <name> [args]`; it picks Windows PowerShell 5.1 on Windows (Git Bash) and PowerShell 7 `pwsh` on macOS/Linux. If there is no `sh` on Windows, call `powershell -NoProfile -ExecutionPolicy Bypass -File <SKILL_DIR>\scripts\<name>.ps1` directly. Runs live in `%TEMP%gent-runs` (Windows) or `$TMPDIR/agent-runs` (`/tmp` fallback).
 - **Windows quoting:** the scripts handle it. If you must call a CLI by hand from PowerShell 5.1, pass long prompts via a file, never inline.
 - Verified live: happy paths, follow-up messages, AGY `STALLED` (killed the whole tree, no orphans). Not yet exercised: `TIMEOUT`, AGY idle-exit, OpenCode `STALLED`. `-StallMin`/`-TimeoutMin`/`-IdleMin` accept fractions (e.g. 0.5) for testing. If one misbehaves, fix `scripts/worker.ps1`.

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.0
+
+- macOS and Linux support: scripts run on PowerShell 7 (`pwsh`); new `scripts/run.sh` picks the right shell automatically. Viewer opens in Terminal.app / the first terminal emulator found (or `-NoWindow`). The status band reads `$TMPDIR/agent-runs` and checks workers with `ps`.
+
 ## 0.1.1 (2026-10-12)
 
 - Fix: persistent viewers are now scoped per project dir, so two projects no longer share (and hijack) the same OpenCode/AGY viewer.

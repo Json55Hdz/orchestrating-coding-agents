@@ -16,6 +16,7 @@ param(
     [int]$Port = 4096
 )
 $ErrorActionPreference = 'Stop'
+. (Join-Path $PSScriptRoot 'common.ps1')
 $isAgy = Test-Path (Join-Path $RunDir 'inbox')
 
 if ($isAgy) {
@@ -26,13 +27,13 @@ if ($isAgy) {
     if ($Last) { if (Test-Path $lastFile) { Get-Content $lastFile -Raw } else { '(no completed turn yet)' }; return }
     if ($Abort) {
         $pidf = Join-Path $RunDir 'pid'
-        if (Test-Path $pidf) { & taskkill.exe /PID ([int](Get-Content $pidf -Raw)) /T /F | Out-Null }
+        if (Test-Path $pidf) { Stop-Tree ([int](Get-Content $pidf -Raw)) }
         'ABORTED (AGY session ended; continue later with dispatch -Resume)'; return
     }
     if (-not $Text) { throw 'give -Text, -Last or -Abort' }
     if (-not $alive) { 'SESSION_ENDED: the AGY worker already exited (idle timeout/closed). Re-dispatch with -Resume and your message in the brief.'; exit 3 }
     Remove-Item $done -Force -ErrorAction SilentlyContinue      # so a waiter sees THIS turn's result, not the old one
-    $f = Join-Path $RunDir ("inbox\{0}.txt" -f (Get-Date -Format 'yyyyMMddHHmmssfff'))
+    $f = Join-Path $RunDir ("inbox/{0}.txt" -f (Get-Date -Format 'yyyyMMddHHmmssfff'))
     [IO.File]::WriteAllText("$f.tmp", $Text, (New-Object Text.UTF8Encoding($false))); Move-Item "$f.tmp" $f
     'SENT'
     if ($Wait) {

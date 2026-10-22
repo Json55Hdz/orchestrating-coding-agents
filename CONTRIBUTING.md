@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. This plugin is small and Windows/PowerShell 5.1 only; keep it dependency-free (no Python, no npm packages at runtime).
+Thanks for helping. This plugin is small and PowerShell only (Windows PowerShell 5.1 and PowerShell 7 on macOS/Linux; keep scripts working on both, use `$IsWin`/helpers in `common.ps1`); keep it dependency-free (no Python, no npm packages at runtime).
 
 ## Layout
 

@@ -28,7 +28,7 @@ $inbox = Join-Path $RunDir 'inbox'
 $utf8  = New-Object System.Text.UTF8Encoding($false)
 $isAgy = $Backend -eq 'agy'
 function Q([string]$s) { '"' + ($s -replace '"','\"') + '"' }
-$host.UI.RawUI.WindowTitle = "[$Backend] $Title"
+try { $host.UI.RawUI.WindowTitle = "[$Backend] $Title" } catch {}
 Set-Content -Path (Join-Path $RunDir 'worker.pid') -Value $PID
 
 if (-not $isAgy) {
@@ -36,8 +36,10 @@ if (-not $isAgy) {
     if ($Model)  { $a += @('-m',$Model) }
     if ($SessionId) { $a += @('-s',$SessionId) } elseif ($Resume) { $a += '-c' }
     $a += $Prompt
-    $exe = 'cmd.exe'
-    $argLine = '/c opencode.cmd ' + (($a | ForEach-Object { Q $_ }) -join ' ')
+    $oc = Resolve-OpenCode
+    if (-not $oc) { throw 'opencode not found on PATH. Install it (npm i -g opencode-ai).' }
+    if ($IsWin) { $exe = 'cmd.exe'; $argLine = '/c opencode.cmd ' + (($a | ForEach-Object { Q $_ }) -join ' ') }
+    else { $exe = (Get-Command $oc).Source; $argLine = ($a | ForEach-Object { Q $_ }) -join ' ' }
 } else {
     New-Item -ItemType Directory -Force $inbox | Out-Null
     $a = @('--dangerously-skip-permissions','--add-dir',$Dir,'--add-dir',$RunDir,'--project',$Title)
@@ -155,7 +157,7 @@ try {
 } catch { $status = 'FAILED'; Write-Host "worker error: $_" }
 finally {
     if ($sw) { try { $sw.Close() } catch {} }
-    if (-not $p.WaitForExit(4000)) { & taskkill.exe /PID $p.Id /T /F | Out-Null }   # whole tree, shims included
+    if (-not $p.WaitForExit(4000)) { Stop-Tree $p.Id }   # whole tree, shims included
 }
 $code = if ($p.HasExited) { $p.ExitCode } else { -1 }
 if ($isAgy) {

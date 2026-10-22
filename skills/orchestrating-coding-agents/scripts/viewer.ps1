@@ -7,13 +7,14 @@ param(
     [string]$Url = 'http://127.0.0.1:4096'
 )
 $here  = Split-Path -Parent $MyInvocation.MyCommand.Path
-$slots = Join-Path $env:TEMP 'agent-runs\slots'
+. (Join-Path $PSScriptRoot 'common.ps1')
+$slots = Join-Path (Get-RunsRoot) 'slots'
 $key   = "$Backend-$Slot"
 $alive = Join-Path $slots "$key.alive"
 $cur   = Join-Path $slots "$key.cur"
 $queue = Join-Path $slots "$key.queue"
 New-Item -ItemType Directory -Force $queue | Out-Null
-$host.UI.RawUI.WindowTitle = "[$Backend] $Slot  (persistent viewer)"
+try { $host.UI.RawUI.WindowTitle = "[$Backend] $Slot  (persistent viewer)" } catch {}
 Set-Content -Path $alive -Value $PID
 
 if ($Backend -eq 'opencode') {
@@ -25,10 +26,11 @@ if ($Backend -eq 'opencode') {
             $raw = Get-Content $cur -Raw
             if ($raw -and $raw -ne $seen) {
                 $seen = $raw
-                if ($child -and -not $child.HasExited) { & taskkill.exe /PID $child.Id /T /F | Out-Null }
+                if ($child -and -not $child.HasExited) { Stop-Tree $child.Id }
                 $t = $raw | ConvertFrom-Json
                 Clear-Host
-                $child = Start-Process cmd.exe -NoNewWindow -PassThru -ArgumentList "/c opencode.cmd attach $Url --dir `"$($t.dir)`" -s $($t.session)"
+                if ($IsWin) { $child = Start-Process cmd.exe -NoNewWindow -PassThru -ArgumentList "/c opencode.cmd attach $Url --dir `"$($t.dir)`" -s $($t.session)" }
+                else { $child = Start-Process (Get-Command opencode).Source -NoNewWindow -PassThru -ArgumentList ((@('attach',$Url,'--dir',$t.dir,'-s',$t.session) | ForEach-Object { '"' + $_ + '"' }) -join ' ') }
                 $announced = $false
             }
         }

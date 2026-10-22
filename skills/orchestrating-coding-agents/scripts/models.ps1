@@ -3,7 +3,7 @@ param([ValidateSet('both','opencode','agy')][string]$Backend = 'both')
 . (Join-Path $PSScriptRoot 'common.ps1')
 if ($Backend -ne 'agy') {
     '=== OPENCODE (pass as provider/model) ==='
-    & opencode.cmd models 2>&1 | Where-Object { $_ -match '/' }
+    & (Resolve-OpenCode) models 2>&1 | Where-Object { $_ -match '/' }
 }
 if ($Backend -ne 'opencode') {
     if ($Backend -eq 'both') { '' }

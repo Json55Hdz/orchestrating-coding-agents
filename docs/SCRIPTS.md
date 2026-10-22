@@ -1,9 +1,9 @@
 # Scripts reference
 
-All scripts are Windows PowerShell 5.1 and live in `skills/orchestrating-coding-agents/scripts/`. Run them with:
+All scripts are PowerShell (Windows PowerShell 5.1, or PowerShell 7 `pwsh` on macOS/Linux) and live in `skills/orchestrating-coding-agents/scripts/`. Run them with:
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File <path>\<script>.ps1 [args]
+sh <path>/run.sh <script> [args]     # picks powershell or pwsh for you
 ```
 
 Claude calls them for you; this page is for when you want to drive them yourself.
@@ -64,10 +64,10 @@ Checks PowerShell, Windows Terminal, OpenCode (with models), AGY (signed in) and
 
 ## Internal
 
-`worker.ps1` (runs one backend process with the watchdog), `viewer.ps1` (the persistent tab), `common.ps1` (shared helpers, e.g. locating `agy.exe` via `AGY_PATH`, the default install path, or `PATH`).
+`worker.ps1` (runs one backend process with the watchdog), `viewer.ps1` (the persistent tab), `common.ps1` (shared helpers, e.g. locating the agy binary via `AGY_PATH`, the default install path, or `PATH`).
 
 ## Environment
 
 | Variable | Use |
 |---|---|
-| `AGY_PATH` | Full path to `agy.exe` if it isn't at `%LOCALAPPDATA%\agy\bin\agy.exe` or on `PATH` |
+| `AGY_PATH` | Full path to the agy binary if it isn't at `%LOCALAPPDATA%\agy\bin\agy.exe` (`~/.local/bin/agy` on macOS/Linux) or on `PATH` |

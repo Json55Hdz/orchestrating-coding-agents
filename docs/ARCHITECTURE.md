@@ -7,7 +7,7 @@ Claude plans, reviews and gates risky actions. An external CLI coding agent does
 ## Moving parts
 
 ```
-Claude Code ──(Bash tool)──► dispatch.ps1 ──► creates RUN_DIR in %TEMP%\agent-runs\<name>-<timestamp>\
+Claude Code ──(Bash tool)──► dispatch.ps1 ──► creates RUN_DIR in %TEMP%\agent-runs\<name>-<timestamp>\ ($TMPDIR/agent-runs on macOS/Linux)
                                   │
                                   ├─ OpenCode: ensure `opencode serve` ─► POST /session ─► hidden worker.ps1
                                   │                                        (opencode run --attach -s <id>)
@@ -47,12 +47,12 @@ Everything about one dispatch lives in `%TEMP%\agent-runs\<name>-<yyyyMMdd>-<HHm
 - **AGY has no server or attach**, and its interactive TUI cannot be driven from outside. So the worker owns one long-lived `agy --print` process in `stream-json` mode with stdin open: the first message is the brief, follow-ups arrive through the inbox, and each `result` event is an exact end-of-turn signal with token usage. The viewer renders those events in a readable form. It is a faithful view of AGY's real event stream, **not** AGY's TUI.
 - **AGY ignores the OS working directory.** The worker always passes `--add-dir <repo>` and `--add-dir <RUN_DIR>`, plus `--project <name> --new-project`, and absolute paths in the prompt.
 - **A watchdog on everything.** Per-turn timeout and "no output for N minutes" detection, killing the whole process tree (the npm shim spawns children). It exists because a hung agent looks identical to a working one from outside.
-- **Persistent viewer tabs.** One long-lived PowerShell per backend/slot in a Windows Terminal window named `agents`; dispatch opens it only when no live one exists and otherwise just points it at the new task.
+- **Persistent viewer tabs.** One long-lived PowerShell per backend/slot in a Windows Terminal window named `agents` (Terminal.app via `osascript` on macOS, the first terminal emulator found on Linux); dispatch opens it only when no live one exists and otherwise just points it at the new task.
 - **Claude never trusts a report.** `review.ps1` gives a compact summary and saves the full diff; the skill tells Claude to read it whenever the summary leaves doubt.
 
 ## The mod
 
-`hooks/register.tsx` draws a band above the prompt (`ui.render` on `AbovePrompt`) from the run directories, polling every 3 s. For runs without `done.json` it checks `worker.pid` against `tasklist`, so a run whose window was closed shows as `closed` instead of `running`, and a folder that never started is hidden. A toast fires when a run reaches a final state. It reads only `%TEMP%` and runs `tasklist`; it writes nothing.
+`hooks/register.tsx` draws a band above the prompt (`ui.render` on `AbovePrompt`) from the run directories, polling every 3 s. For runs without `done.json` it checks `worker.pid` against `tasklist` (`ps` on macOS/Linux), so a run whose window was closed shows as `closed` instead of `running`, and a folder that never started is hidden. A toast fires when a run reaches a final state. It reads only `%TEMP%` and runs `tasklist`; it writes nothing.
 
 ## Adding another backend (Codex, etc.)
 

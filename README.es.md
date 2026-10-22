@@ -4,7 +4,7 @@
 
 English: [README.md](README.md)
 
-**Estado:** `0.1.0`, temprano. Funciona de punta a punta en Windows 11. Licencia MIT.
+**Estado:** `0.2.0`, temprano. Funciona de punta a punta en Windows 11; macOS/Linux es nuevo y probado solo en Linux sin ventana. Licencia MIT.
 
 ## Qué incluye
 
@@ -17,7 +17,7 @@ English: [README.md](README.md)
 
 ## Requisitos
 
-- Windows 10/11 con **Windows PowerShell 5.1** (incluido) y **Windows Terminal** (`wt.exe`). Nada de Python ni paquetes extra.
+- **Windows 10/11**: Windows PowerShell 5.1 (incluido) y Windows Terminal (`wt.exe`). **macOS / Linux**: [PowerShell 7](https://aka.ms/powershell) (`pwsh`) y `git`; el visor se abre en Terminal.app (macOS) o en tu emulador de terminal (Linux), o usa `-NoWindow`. El plugin elige el shell correcto solo (`scripts/run.sh`). Nada de Python ni paquetes extra.
 - Al menos un backend con sesión iniciada:
   - **OpenCode**: `npm i -g opencode-ai` y luego `opencode providers login`
   - **AGY**: instala el CLI de Antigravity y ejecuta `agy` una vez para iniciar sesión (usa `AGY_PATH` si no está en la ruta por defecto ni en el `PATH`)

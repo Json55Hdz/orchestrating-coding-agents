@@ -22,7 +22,7 @@ Español: [README.es.md](README.es.md)
 - **Windows 10/11**: Windows PowerShell 5.1 (built in) and Windows Terminal (`wt.exe`). **macOS / Linux**: [PowerShell 7](https://aka.ms/powershell) (`pwsh`) and `git`; the viewer opens in Terminal.app (macOS) or your terminal emulator (Linux), or run headless with `-NoWindow`. The plugin picks the right shell by itself (`scripts/run.sh`). No Python or Node packages.
 - At least one backend, signed in:
   - **OpenCode**: `npm i -g opencode-ai`, then `opencode providers login`
-  - **AGY / Antigravity CLI**: install it and run `agy` once to sign in (set `AGY_PATH` if it is not at `%LOCALAPPDATA%\agy\bin\agy.exe` or on `PATH`)
+  - **AGY / Antigravity CLI**: install it and run `agy` once to sign in (set `AGY_PATH` if it is not at `%LOCALAPPDATA%\agy\bin\agy.exe` or on `PATH`; on macOS/Linux the default is `~/.local/bin/agy`)
 - Claude Code with plugin support.
 
 ## Install
@@ -36,7 +36,7 @@ In a Claude Code session:
 Answer `y` to add the marketplace, then pick a scope. Then check your machine (Claude can run this for you, or run it yourself):
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File <plugin-dir>\skills\orchestrating-coding-agents\scripts\preflight.ps1
+sh <plugin-dir>/skills/orchestrating-coding-agents/scripts/run.sh preflight
 ```
 
 **One manual step for unattended AGY runs.** AGY needs `--dangerously-skip-permissions` to work without prompts, and Claude Code rightly refuses to grant itself that. Add this rule yourself with `/permissions` (or in `settings.json`):
@@ -89,12 +89,12 @@ Verified live on Windows 11 (OpenCode 1.18.x, AGY with Gemini models):
 - watchdog `STALLED` on AGY (killed the process tree, no orphans)
 - compact `review.ps1` on a real git repo; mod validation and 3 automated tests
 
-**Not yet exercised:** watchdog `TIMEOUT`, `STALLED` on OpenCode, AGY idle-exit, other OSes (Windows only), and long real-world tasks (no token-savings measurement yet). Issues and PRs welcome.
+**Not yet exercised:** watchdog `TIMEOUT`, `STALLED` on OpenCode, AGY idle-exit, the viewer window on macOS and Linux with a display, and long real-world tasks (no token-savings measurement yet). Issues and PRs welcome.
 
 ## Safety notes
 
 - Both backends run with auto-approve (`--auto` / `--dangerously-skip-permissions`) inside the target directory. Use it on repos you trust, keep work committed/backed up, and rely on the brief's boundary line (*no pushes/merges/deploys*). The skill instructs Claude to confirm with you before pushing anything the agent built.
-- The scripts only write under `%TEMP%\agent-runs\` and the target directory. They never read or send credentials.
+- The scripts only write under `%TEMP%\agent-runs` (`$TMPDIR/agent-runs` on macOS/Linux) and the target directory. They never read or send credentials.
 - Briefs and logs live in `%TEMP%\agent-runs\`; delete old run folders any time.
 
 ## Uninstall
@@ -103,7 +103,7 @@ Verified live on Windows 11 (OpenCode 1.18.x, AGY with Gemini models):
 /plugin uninstall orchestrating-coding-agents
 ```
 
-To stop the shared OpenCode server: `Get-CimInstance Win32_Process | ? CommandLine -match 'opencode.*serve' | % { taskkill /PID $_.ProcessId /T /F }`.
+To stop the shared OpenCode server: `Get-CimInstance Win32_Process | ? CommandLine -match 'opencode.*serve' | % { taskkill /PID $_.ProcessId /T /F }` (Windows) or `pkill -f 'opencode serve'` (macOS/Linux).
 
 ## License
 

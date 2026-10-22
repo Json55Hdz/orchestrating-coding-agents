@@ -1,6 +1,6 @@
 # Troubleshooting
 
-Start with `scripts\preflight.ps1`. It checks PowerShell, Windows Terminal, OpenCode, AGY and their sign-ins.
+Start with `sh scripts/run.sh preflight`. It checks PowerShell, Windows Terminal, OpenCode, AGY and their sign-ins.
 
 ## `dispatch.ps1` says `-Model is required`
 By design. Run `models.ps1`, pick a model, pass it with `-Model`. Claude asks you for it each time.
@@ -20,8 +20,8 @@ A single turn exceeded `-TimeoutMin`. Same recovery as above, or raise the limit
 ## `agy` is refused when Claude runs it
 Claude Code blocks `--dangerously-skip-permissions` unless **you** added the rule `Bash(agy --dangerously-skip-permissions:*)` (via `/permissions` or `settings.json`). The plugin cannot and should not grant it itself.
 
-## `agy.exe not found`
-Install the Antigravity CLI or set the `AGY_PATH` environment variable to the full path of `agy.exe`.
+## `agy not found`
+Install the Antigravity CLI or set the `AGY_PATH` environment variable to the full path of the agy binary.
 
 ## `SESSION_ENDED` from `say.ps1` (AGY)
 The AGY worker exited (idle timeout, closed window, or it stalled). Re-dispatch the same `-Name`/`-Dir` with `-Resume`.
@@ -36,7 +36,9 @@ Mods load when the plugin loads; run `/reload-plugins` or restart the session. C
 ```powershell
 Get-CimInstance Win32_Process | ? CommandLine -match 'opencode.*serve' | % { taskkill /PID $_.ProcessId /T /F }
 ```
+
+macOS/Linux: `pkill -f 'opencode serve'`.
 The next dispatch starts a fresh one. Use `-Port` if 4096 is taken.
 
 ## Cleaning up
-Run folders are in `%TEMP%\agent-runs\`; delete any you don't need. Don't delete `slots\` while viewers are open.
+Run folders are in `%TEMP%\agent-runs\` (`$TMPDIR/agent-runs` on macOS/Linux); delete any you don't need. Don't delete `slots\` while viewers are open.

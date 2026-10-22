@@ -94,7 +94,7 @@ Verified live on Windows 11 (OpenCode 1.18.x, AGY with Gemini models):
 ## Safety notes
 
 - Both backends run with auto-approve (`--auto` / `--dangerously-skip-permissions`) inside the target directory. Use it on repos you trust, keep work committed/backed up, and rely on the brief's boundary line (*no pushes/merges/deploys*). The skill instructs Claude to confirm with you before pushing anything the agent built.
-- The scripts only write under `%TEMP%\agent-runs` (`$TMPDIR/agent-runs` on macOS/Linux) and the target directory. They never read or send credentials.
+- The scripts only write under `%TEMP%\agent-runs` (a private per-user dir on macOS/Linux: `$XDG_RUNTIME_DIR`, `$TMPDIR` or `~/.cache`) and the target directory. They never read or send credentials.
 - Briefs and logs live in `%TEMP%\agent-runs\`; delete old run folders any time.
 
 ## Uninstall

@@ -7,7 +7,7 @@ Claude plans, reviews and gates risky actions. An external CLI coding agent does
 ## Moving parts
 
 ```
-Claude Code ──(Bash tool)──► dispatch.ps1 ──► creates RUN_DIR in %TEMP%\agent-runs\<name>-<timestamp>\ ($TMPDIR/agent-runs on macOS/Linux)
+Claude Code ──(Bash tool)──► dispatch.ps1 ──► creates RUN_DIR in %TEMP%\agent-runs\<name>-<timestamp>\ (private per-user dir on macOS/Linux)
                                   │
                                   ├─ OpenCode: ensure `opencode serve` ─► POST /session ─► hidden worker.ps1
                                   │                                        (opencode run --attach -s <id>)

@@ -7,9 +7,15 @@ $script:PsExe = if ($script:IsWin) { 'powershell.exe' } else { (Get-Process -Id 
 $script:PsArgs = @(if ($script:IsWin) { '-NoProfile','-ExecutionPolicy','Bypass' } else { '-NoProfile' })
 
 function Get-RunsRoot {
-    # %TEMP%\agent-runs on Windows, $TMPDIR/agent-runs (or /tmp) elsewhere; the band mod reads the same place.
-    $t = if ($script:IsWin) { $env:TEMP } elseif ($env:TMPDIR) { $env:TMPDIR } else { '/tmp' }
-    Join-Path $t.TrimEnd('/', '\') 'agent-runs'
+    # %TEMP%\agent-runs on Windows. Elsewhere a per-user location, never the shared /tmp (another user could plant jobs):
+    # $XDG_RUNTIME_DIR, else $TMPDIR (private on macOS), else ~/.cache. The band mod uses the same order.
+    $t = if ($script:IsWin) { $env:TEMP } elseif ($env:XDG_RUNTIME_DIR) { $env:XDG_RUNTIME_DIR } elseif ($env:TMPDIR) { $env:TMPDIR } else { Join-Path $HOME '.cache' }
+    $r = Join-Path $t.TrimEnd('/', '\') 'agent-runs'
+    if (-not $script:IsWin) {
+        if (-not (Test-Path $r)) { New-Item -ItemType Directory -Force $r | Out-Null }
+        & chmod 700 $r 2>$null
+    }
+    $r
 }
 
 function Resolve-Agy {

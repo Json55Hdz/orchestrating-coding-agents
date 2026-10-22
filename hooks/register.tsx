@@ -79,7 +79,7 @@ async function livePids($: any, win: boolean): Promise<Set<number> | null> {
 }
 
 async function scan($: any): Promise<Run[]> {
-  const tmp = String((await $.env.get('TEMP')) || (await $.env.get('TMPDIR')) || '/tmp').replace(/[/\\]+$/, '')
+  const tmp = String((await $.env.get('TEMP')) || (await $.env.get('XDG_RUNTIME_DIR')) || (await $.env.get('TMPDIR')) || `${await $.env.get('HOME')}/.cache`).replace(/[/\\]+$/, '')
   const win = isWin(tmp)
   const sep = win ? '\\' : '/'
   const base = `${tmp}${sep}agent-runs`

@@ -2,7 +2,7 @@
 
 ## 0.2.0
 
-- macOS and Linux support: scripts run on PowerShell 7 (`pwsh`); new `scripts/run.sh` picks the right shell automatically. Viewer opens in Terminal.app / the first terminal emulator found (or `-NoWindow`). The status band reads `$TMPDIR/agent-runs` and checks workers with `ps`.
+- macOS and Linux support: scripts run on PowerShell 7 (`pwsh`); new `scripts/run.sh` picks the right shell automatically. Viewer opens in Terminal.app / the first terminal emulator found (or `-NoWindow`). Runs live in a private per-user dir (`$XDG_RUNTIME_DIR`, `$TMPDIR` or `~/.cache`, mode 700; never shared `/tmp`). The status band reads `agent-runs` there and checks workers with `ps`.
 
 ## 0.1.1 (2026-10-12)
 

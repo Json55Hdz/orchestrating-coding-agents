@@ -41,4 +41,4 @@ macOS/Linux: `pkill -f 'opencode serve'`.
 The next dispatch starts a fresh one. Use `-Port` if 4096 is taken.
 
 ## Cleaning up
-Run folders are in `%TEMP%\agent-runs\` (`$TMPDIR/agent-runs` on macOS/Linux); delete any you don't need. Don't delete `slots\` while viewers are open.
+Run folders are in `%TEMP%\agent-runs\` (a private per-user dir on macOS/Linux: `$XDG_RUNTIME_DIR`, `$TMPDIR` or `~/.cache`); delete any you don't need. Don't delete `slots\` while viewers are open.

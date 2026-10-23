@@ -10,7 +10,7 @@ while [ $# -gt 0 ]; do
 done
 if [ "$Backend" != agy ]; then
   echo '=== OPENCODE (pass as provider/model) ==='
-  if command -v opencode >/dev/null 2>&1; then opencode models 2>&1 | grep '/'; else echo '(opencode not installed)'; fi
+  if command -v opencode >/dev/null 2>&1; then { m=$(opencode models --refresh 2>&1 | grep '/'); [ -n "$m" ] || m=$(opencode models 2>&1 | grep '/'); printf '%s\n' "$m"; }; else echo '(opencode not installed)'; fi
 fi
 if [ "$Backend" != opencode ]; then
   [ "$Backend" = both ] && echo

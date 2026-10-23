@@ -31,8 +31,9 @@ if [ "$Backend" = opencode ]; then
         seen=$raw
         [ -n "$child" ] && kill -0 "$child" 2>/dev/null && stop_tree "$child"
         sess=$(printf '%s\n' "$raw" | sed -n 1p); tdir=$(printf '%s\n' "$raw" | sed -n 2p)
+        turl=$(printf '%s\n' "$raw" | sed -n 5p); [ -n "$turl" ] || turl=$Url
         clear
-        opencode attach "$Url" --dir "$tdir" -s "$sess" &
+        opencode attach "$turl" --dir "$tdir" -s "$sess" &
         child=$!; announced=0
       fi
     fi

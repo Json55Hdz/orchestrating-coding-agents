@@ -3,7 +3,9 @@ param([ValidateSet('both','opencode','agy')][string]$Backend = 'both')
 . (Join-Path $PSScriptRoot 'common.ps1')
 if ($Backend -ne 'agy') {
     '=== OPENCODE (pass as provider/model) ==='
-    & (Resolve-OpenCode) models 2>&1 | Where-Object { $_ -match '/' }
+    $m = & (Resolve-OpenCode) models --refresh 2>&1 | Where-Object { $_ -match '/' }   # refresh: newly added models show up
+    if (-not $m) { $m = & (Resolve-OpenCode) models 2>&1 | Where-Object { $_ -match '/' } }
+    $m
 }
 if ($Backend -ne 'opencode') {
     if ($Backend -eq 'both') { '' }

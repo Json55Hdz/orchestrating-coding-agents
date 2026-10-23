@@ -7,7 +7,7 @@
 # Prints RUN_DIR=...; completion signal is <RUN_DIR>/done.json (see wait.sh).
 here=$(cd "$(dirname "$0")" && pwd); . "$here/common.sh"
 
-Backend=; Dir=; BriefFile=; Name=task; Slot=main; Model=; Resume=0; NoWindow=0
+Backend=; Dir=; BriefFile=; Name=task; Slot=main; Model=; Resume=0; NoWindow=0; RestartServer=0
 TimeoutMin=30; StallMin=10; IdleMin=15; Port=
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -19,6 +19,7 @@ while [ $# -gt 0 ]; do
     -Model) Model=$2; shift 2 ;;
     -Resume) Resume=1; shift ;;
     -NoWindow) NoWindow=1; shift ;;
+    -RestartServer) RestartServer=1; shift ;;
     -TimeoutMin) TimeoutMin=$2; shift 2 ;;
     -StallMin) StallMin=$2; shift 2 ;;
     -IdleMin) IdleMin=$2; shift 2 ;;
@@ -45,7 +46,11 @@ mkdir -p "$run"
 cp "$BriefFile" "$run/brief.md"
 brief=$run/brief.md
 printf '%s\n' "$Dir" > "$run/target-dir"
-bc=$(git -C "$Dir" rev-parse HEAD 2>/dev/null) && [ -n "$bc" ] && printf '%s\n' "$bc" > "$run/base-commit"   # lets review diff against the pre-dispatch state
+if bc=$(git -C "$Dir" rev-parse HEAD 2>/dev/null) && [ -n "$bc" ]; then
+  printf '%s\n' "$bc" > "$run/base-commit"   # lets review diff against the pre-dispatch state
+else
+  perl "$here/snap.pl" snap "$Dir" "$run/snapshot.txt" 2>/dev/null   # no git: review compares against this file list
+fi
 prompt="Your full task brief is in the file $brief . Read it first, then do exactly what it says. Report in the format it asks for."
 url=http://127.0.0.1:${Port:-4096}   # OpenCode resolves its own per-user port below
 slots=$runs/slots
@@ -93,6 +98,15 @@ ensure_viewer() {
   while [ $i -lt 40 ]; do viewer_alive && { VIEWER=opened; return; }; sleep 0.5; i=$((i+1)); done
 }
 
+# true when opencode itself, its login or its config changed after the recorded server started (the server would answer with old models/accounts)
+server_stale() {
+  local f oc
+  oc=$(command -v opencode 2>/dev/null)
+  for f in "$oc" "${XDG_DATA_HOME:-$HOME/.local/share}/opencode/auth.json" "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.json" "${XDG_CONFIG_HOME:-$HOME/.config}/opencode/opencode.jsonc"; do
+    [ -n "$f" ] && [ -e "$f" ] && [ "$f" -nt "$1" ] && return 0
+  done
+  return 1
+}
 server_wait() { local i=0; while [ $i -lt 30 ]; do server_up && return; sleep 0.5; i=$((i+1)); done; }
 server_up() {
   local c
@@ -109,11 +123,16 @@ if [ "$Backend" = opencode ]; then
     portf=$runs/server.port; pidf=$runs/server.pid
     spid=; sport=
     [ -f "$pidf" ] && spid=$(cat "$pidf"); [ -f "$portf" ] && sport=$(cat "$portf")
-    if [ -n "$spid" ] && [ -n "$sport" ] && kill -0 "$spid" 2>/dev/null \
+    if [ -n "$spid" ] && [ $RestartServer = 0 ] && ! server_stale "$pidf" && [ -n "$sport" ] && kill -0 "$spid" 2>/dev/null \
        && ps -p "$spid" -o args= 2>/dev/null | grep -Eq "opencode serve --port $sport( |$)" && listener_owned "$spid" "$sport"; then
       Port=$sport
     else
-      rm -f "$pidf" "$portf"   # stale or unverifiable record: never trust it (a still-running old server is left alone)
+      if [ -n "$spid" ] && kill -0 "$spid" 2>/dev/null && { [ $RestartServer = 1 ] || server_stale "$pidf"; }; then
+        if [ $RestartServer = 1 ]; then why=requested; else why="opencode, its login or its config changed since the server started"; fi
+        echo "NOTE: restarting the opencode server ($why); tasks still running on the old one are interrupted"
+        stop_tree "$spid"
+      fi
+      rm -f "$pidf" "$portf"   # stale or unverifiable record: never trust it
       Port=$(pick_port); [ -n "$Port" ] || die "could not find a free port"
       url=http://127.0.0.1:$Port
       start_detached "$run/server.log" "$run/server.err" opencode serve --port "$Port"
@@ -157,7 +176,7 @@ if [ "$Backend" = opencode ]; then
       if [ "$VIEWER" = failed ]; then
         echo "VIEWER=FAILED (viewer window did not start; task still runs - see $run/out.log)"
       else
-        printf '%s\n%s\n%s\n%s\n' "$sid" "$Dir" "$run" "$(date +%s)" > "$slots/$key.cur.tmp"
+        printf '%s\n%s\n%s\n%s\n%s\n' "$sid" "$Dir" "$run" "$(date +%s)" "$url" > "$slots/$key.cur.tmp"
         mv -f "$slots/$key.cur.tmp" "$slots/$key.cur"
         sleep 4
         if cmdline_running ' attach ' "$sid"; then echo "VIEWER=OK ($VIEWER)"

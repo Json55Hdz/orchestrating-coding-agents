@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.1
+
+Fixes from a real-world run (macOS/Linux scripts; the Windows `.ps1` twins do not have these yet, except `models --refresh`):
+- OpenCode: `done.json` now carries real `tokens` and `last-response.txt` is written (both were missing).
+- OpenCode: `say` on a finished session clears `done.json` while the follow-up runs and records its outcome (turn, tokens, reply) when it ends, and `peek` reads the live steps from the server, so a follow-up no longer looks DONE.
+- OpenCode: a recorded server is restarted when opencode, its login (`auth.json`) or its config changed after it started (this caused "Model not found"); `-RestartServer` forces it. Viewers follow the new server URL instead of staying on the old one (`NOT_ATTACHED`).
+- `review` works in folders without git: dispatch snapshots the file list and review reports added/modified/deleted files.
+- `models` refreshes OpenCode's model list first (`opencode models --refresh`), so newly added models show up.
+
 ## 0.3.0
 
 - macOS/Linux no longer need PowerShell: bash + perl twins of every script in `scripts/sh/` (bash 3.2 and core perl modules only, nothing to install). `scripts/run.sh` picks the implementation by OS; Windows keeps PowerShell 5.1.

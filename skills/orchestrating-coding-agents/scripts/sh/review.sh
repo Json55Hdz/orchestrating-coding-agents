@@ -16,7 +16,26 @@ if [ -z "$Dir" ] && [ -f "$RunDir/target-dir" ]; then Dir=$(tr -d '\r\n' < "$Run
 base=; if [ -f "$RunDir/base-commit" ]; then base=$(tr -d ' \r\n' < "$RunDir/base-commit"); fi
 full=$RunDir/full.diff
 G() { git -c core.safecrlf=false -C "$Dir" "$@" 2>/dev/null; }
-if [ "$(G rev-parse --is-inside-work-tree)" != true ]; then echo "Not a git repo: $Dir. Inspect files directly."; exit 0; fi
+if [ "$(G rev-parse --is-inside-work-tree)" != true ]; then
+  here=$(cd "$(dirname "$0")" && pwd)
+  if [ ! -f "$RunDir/snapshot.txt" ]; then echo "Not a git repo: $Dir, and this run has no file snapshot. Inspect files directly."; exit 0; fi
+  echo "== Not a git repo: comparing $Dir against the file list taken at dispatch (A=added M=modified D=deleted)"
+  changes=$(perl "$here/snap.pl" diff "$Dir" "$RunDir/snapshot.txt")
+  if [ -z "$changes" ]; then echo '(no file changes)'; else printf '%s\n' "$changes" | head -200; n=$(printf '%s\n' "$changes" | wc -l | tr -d ' '); [ "$n" -gt 200 ] && echo "... and $((n-200)) more"; fi
+  {
+    printf '%s\n' "$changes" | while IFS=$'\t' read -r k p; do
+      [ -n "$p" ] || continue
+      f=$Dir/$p
+      if [ "$k" = D ]; then echo "# deleted: $p"
+      elif [ -L "$f" ]; then echo "# (skipped: $p - symlink)"
+      elif [ -f "$f" ] && [ "$(wc -c < "$f")" -lt 204800 ]; then printf '# %s: %s\n' "$k" "$p"; sed 's/^/+/' "$f"
+      else echo "# (skipped: $p - binary or >200KB)"; fi
+    done
+  } > "$full"
+  echo; echo "== Contents of added/modified files (no git history, so not a real diff): $full"
+  if [ -f "$RunDir/last-response.txt" ]; then echo; echo "== Agent's last reply (first 40 lines)"; head -40 "$RunDir/last-response.txt"; fi
+  exit 0
+fi
 if [ -z "$base" ]; then
   base=HEAD
   echo "(no base commit recorded for this run; comparing against current HEAD = uncommitted changes only)"

@@ -116,10 +116,20 @@ my $sel = IO::Select->new($outR, $errR);
 my %buf = (fileno($outR) => '', fileno($errR) => '');
 my $status;
 
+my $ocText;
+sub track_opencode {   # tokens and the final report come from the JSON events of `opencode run --format json`
+    my ($line) = @_;
+    return unless $line =~ /^\{/;
+    my $j = eval { decode_json($line) }; return unless $j && ref $j eq 'HASH';
+    my $t = $j->{type} // '';
+    if ($t eq 'step_finish') { $turnTokens += $j->{part}{tokens}{total} // 0 }
+    elsif ($t eq 'text' && defined $j->{part}{text}) { $ocText = $j->{part}{text} }
+}
 sub handle_line {
     my ($line, $isOut) = @_;
     $line =~ s/\r$//;
     print $log "$line\n";
+    track_opencode($line) if !$isAgy && $isOut;
     if ($isAgy && $isOut) { show_agy_line($line) } else { print "$line\n" }
     $lastOut = time;
 }
@@ -173,6 +183,8 @@ if ($isAgy) {
     write_done($status // 'FAILED', $code) if ($status && $status =~ /^(STALLED|TIMEOUT|FAILED)$/) || !-e $done;
 } else {
     $status = $code == 0 ? 'DONE' : 'FAILED' unless $status;
+    $results = 1;
+    spit("$RunDir/last-response.txt", $ocText) if defined $ocText;
     write_done($status, $code);
 }
 my $final = ($status // '') eq 'IDLE_EXIT' ? 'session closed (idle)' : sprintf('%s (exit %s)', $status // 'DONE', $code);

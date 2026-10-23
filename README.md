@@ -4,7 +4,7 @@
 
 Español: [README.es.md](README.es.md)
 
-**Status:** `0.3.0`, early. Works end to end on Windows 11; macOS/Linux support is new and smoke-tested on Linux only (see [what is verified](#what-is-verified-and-what-is-not)). MIT licensed.
+**Status:** `0.3.1`, early. Works end to end on Windows 11; macOS/Linux support is new and smoke-tested on Linux only (see [what is verified](#what-is-verified-and-what-is-not)). MIT licensed.
 
 ## What you get
 

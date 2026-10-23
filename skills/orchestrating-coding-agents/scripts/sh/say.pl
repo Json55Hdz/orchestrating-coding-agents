@@ -6,7 +6,7 @@
 #   say -RunDir <RUN_DIR> -Abort                             interrupt (OpenCode: current turn; AGY: ends the session)
 use strict; use warnings;
 use FindBin; require "$FindBin::Bin/lib.pl";
-use JSON::PP; use Getopt::Long; use HTTP::Tiny; use POSIX qw(strftime);
+use JSON::PP; use Getopt::Long; use HTTP::Tiny; use POSIX qw(strftime setsid);
 use Time::HiRes qw(time sleep gettimeofday);
 
 my ($RunDir, $Text, $Model, $Wait, $WaitSec, $Last, $Abort, $Port) = ('', '', '', 0, 300, 0, 0, 0);
@@ -71,6 +71,31 @@ sub last_assistant {
              text => join("\n", map { $_->{text} // '' } grep { ($_->{type} // '') eq 'text' } @{ $m->{parts} || [] }) };
 }
 
+# OpenCode has no worker after the first turn, so whoever sends a follow-up also records its outcome:
+# done.json (status, turn, tokens) and last-response.txt, exactly like the worker does for the first turn.
+my $prev = eval { decode_json(slurp("$RunDir/done.json")) } || {};
+sub record_done {
+    my ($before, $deadline) = @_;
+    while (time < $deadline) {
+        sleep 2;
+        my $msgs = eval { get_msgs() } or next;
+        my $l = last_assistant($msgs);
+        next unless $l && $l->{done} && (!$before || $l->{id} ne $before->{id});
+        my ($tok, $seen) = (0, $before ? 0 : 1);
+        for my $m (@$msgs) {
+            if (!$seen) { $seen = 1 if ($m->{info}{id} // '') eq $before->{id}; next }
+            $tok += $m->{info}{tokens}{total} // 0 if ($m->{info}{role} // '') eq 'assistant';
+        }
+        spit("$RunDir/last-response.txt", $l->{text});
+        spit("$RunDir/done.json", JSON::PP->new->canonical->pretty->encode({
+            status => 'DONE', exitCode => 0, backend => 'opencode', title => $prev->{title} // '',
+            seconds => $prev->{seconds} // 0, log => "$RunDir/out.log", turn => ($prev->{turn} // 1) + 1, tokens => $tok + 0,
+            conversation => $sid, lastResponse => "$RunDir/last-response.txt" }));
+        return $l;
+    }
+    undef;
+}
+
 if ($Abort) { $http->post("$base/abort"); print "ABORTED\n"; exit 0 }
 if ($Last)  { my $l = last_assistant(get_msgs()); print $l ? "$l->{text}\n" : "(no assistant message yet)\n"; exit 0 }
 die "give -Text, -Last or -Abort\n" unless length $Text;
@@ -80,13 +105,17 @@ my %body = (parts => [ { type => 'text', text => $Text } ]);
 if ($Model) { my ($p, $m) = split m{/}, $Model, 2; $body{model} = { providerID => $p, modelID => $m } }
 my $r = $http->post("$base/prompt_async", { headers => { 'Content-Type' => 'application/json' }, content => $json->encode(\%body) });
 die "prompt_async failed: $r->{status} $r->{reason}\n" unless $r->{success};
+unlink "$RunDir/done.json";   # a new turn is running: peek/band must not keep saying DONE
 print "SENT\n";
 if ($Wait) {
-    my $deadline = time + $WaitSec;
-    while (time < $deadline) {
-        sleep 2;
-        my $l = last_assistant(get_msgs());
-        if ($l && $l->{done} && (!$before || $l->{id} ne $before->{id})) { print "$l->{text}\n"; exit 0 }
+    my $l = record_done($before, time + $WaitSec);
+    if ($l) { print "$l->{text}\n" } else { print "WAIT_EXPIRED (still working; use -Last later or -Abort)\n" }
+} else {
+    my $pid = fork();
+    if (defined $pid && $pid == 0) {   # detached watcher: records done.json when the follow-up finishes
+        setsid();
+        open STDIN, '<', '/dev/null'; open STDOUT, '>', '/dev/null'; open STDERR, '>', '/dev/null';
+        record_done($before, time + 3600);
+        exit 0;
     }
-    print "WAIT_EXPIRED (still working; use -Last later or -Abort)\n";
 }

@@ -3,7 +3,7 @@
 #   peek -RunDir <RUN_DIR> [-Lines 15]
 use strict; use warnings;
 use FindBin; require "$FindBin::Bin/lib.pl";
-use JSON::PP; use Getopt::Long;
+use JSON::PP; use Getopt::Long; use HTTP::Tiny;
 
 my ($RunDir, $Lines) = ('', 15);
 Getopt::Long::Configure('ignore_case');
@@ -25,13 +25,34 @@ if (-e $done) {
     my $d = eval { decode_json(slurp($done)) } || {};
     $head = sprintf('%s (turn %s, %ss, tokens %s)', $d->{status} // '?', $d->{turn} // 0, $d->{seconds} // 0, $d->{tokens} // 0);
 } elsif (!-e $log) { $head = 'NOT STARTED (no output yet)' }
+elsif (!$isAgy && -e "$RunDir/session") { $head = 'RUNNING' }   # OpenCode: the server is the live source (below)
 else { $head = sprintf('RUNNING (last output %ds ago)', time - (stat $log)[9]) }
 my $name = (split m{/}, $RunDir)[-1] // $RunDir;
 printf "[%s] %s  %s\n", ($isAgy ? 'agy' : 'opencode'), $name, $head;
-exit 0 unless -e $log;
-
+# OpenCode: the shared server holds every turn (including follow-ups sent with say), so read the steps from it
 my @items; my $say = '';
 sub flush_say { if (length $say) { push @items, 'say: ' . T($say, 220); $say = '' } }
+if (!$isAgy && -e "$RunDir/session") {
+    my $sid = slurp("$RunDir/session"); $sid =~ s/\s+//g if defined $sid;
+    my $pf = slurp("$RunDir/port"); my $port = defined $pf && $pf =~ /(\d+)/ ? $1 : 4096;
+    my $r = $sid ? HTTP::Tiny->new(timeout => 8)->get("http://127.0.0.1:$port/session/$sid/message") : undef;
+    my $msgs = $r && $r->{success} ? eval { decode_json($r->{content}) } : undef;
+    if ($msgs && ref $msgs eq 'ARRAY') {
+        for my $m (@$msgs) {
+            next unless ($m->{info}{role} // '') eq 'assistant';
+            for my $p (@{ $m->{parts} || [] }) {
+                my $type = $p->{type} // '';
+                if ($type eq 'tool') { push @items, sprintf('> %s %s [%s]', $p->{tool} // '', T(first_param($p->{state}{input}), 110), $p->{state}{status} // '') }
+                elsif ($type eq 'text' && length($p->{text} // '')) { push @items, 'say: ' . T($p->{text}, 220) }
+            }
+        }
+        my $from = @items > $Lines ? @items - $Lines : 0;
+        print "$_\n" for @items[$from .. $#items];
+        exit 0;
+    }
+}
+exit 0 unless -e $log;
+
 open my $fh, '<', $log or exit 0;
 my @tail; while (<$fh>) { push @tail, $_; shift @tail if @tail > 600 }
 close $fh;

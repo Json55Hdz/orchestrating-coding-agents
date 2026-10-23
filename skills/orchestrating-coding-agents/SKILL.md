@@ -47,7 +47,7 @@ Follow-ups on the same task (`say.ps1`, `-Resume`) keep that model, so don't re-
 ```sh
 sh "<SKILL_DIR>/scripts/run.sh" dispatch \
   -Backend opencode|agy -Dir "<abs repo path>" -BriefFile "<abs brief path>" -Name "<short-name>" \
-  -Model "<chosen by the user>" [-Slot main] [-Resume] [-NoWindow] [-TimeoutMin 30] [-StallMin 10]
+  -Model "<chosen by the user>" [-Slot main] [-Resume] [-NoWindow] [-RestartServer] [-TimeoutMin 30] [-StallMin 10]
 ```
 
    Output: `VIEWER=OK|...` and `RUN_DIR=<path>`. If `VIEWER` is not OK, tell the user plainly; the task may still be running (OpenCode) — check `RUN_DIR/out.log`.
@@ -147,7 +147,7 @@ Push, merge and deploy: confirm with the user first, review the diff yourself, t
 ## Tool Notes and Gotchas
 
 - **Why no more interactive/`--prompt` seeding:** `opencode [project] --prompt` and `agy -i` run ONE turn then wait for a human forever — a real dispatch stalled that way. Unattended work uses `run --attach` / `--print` only (which `dispatch.ps1` does). Run the interactive forms by hand only when the user is at the keyboard.
-- **OpenCode:** `run --attach` talks to the shared server, so a crashed TUI window never kills a task. Server log: `<first RUN_DIR>\server.log`. To stop the server: `Get-CimInstance Win32_Process | ? CommandLine -match 'opencode.*serve' | % { taskkill /PID $_.ProcessId /T /F }`. `--auto` auto-approves everything not explicitly denied; it grants no rights the brief doesn't.
+- **OpenCode:** `run --attach` talks to the shared server, so a crashed TUI window never kills a task. Server log: `<first RUN_DIR>\server.log`. To stop the server: `Get-CimInstance Win32_Process | ? CommandLine -match 'opencode.*serve' | % { taskkill /PID $_.ProcessId /T /F }` (Windows) or `pkill -f 'opencode.*serve'` (macOS/Linux). `--auto` auto-approves everything not explicitly denied; it grants no rights the brief doesn't.
 - **AGY:** needs the user-owned permission rule `Bash(agy --dangerously-skip-permissions:*)` (add via `/permissions`; you cannot grant it yourself and must not try to route around the classifier or edit `settings.json` to self-grant). Until it exists, the dispatch is refused. The worker runs `agy --print "" --input-format stream-json --output-format stream-json` and sends the brief as the first stream message; later messages come from `say.ps1`. AGY ignores the OS cwd, so the scripts always pass `--add-dir` (repo and run dir) plus `--project <name> --new-project`; the brief path in the prompt is absolute. Verify results against the real target folder, never `~/.gemini/antigravity-cli/scratch`. Stall/timeout are per turn (`-StallMin`, `-TimeoutMin`); `-IdleMin` (default 15) is how long the session stays open after a turn. AGY has no server/attach and its interactive TUI can't be driven from outside; `--remote-control` only opens a Google-cloud web tunnel for interactive sessions (not `--print`). To inspect a finished conversation in the real TUI by hand: `agy --conversation <id>` (id is in `done.json`); don't open it while a worker is writing to the same conversation.
 - **`antigravity-ide`** is a different binary (VS-Code-fork IDE), unvalidated for this pattern; use `agy`.
 - **Other CLIs:** check `<tool> --help`; if there is no scriptable run mode it doesn't fit.

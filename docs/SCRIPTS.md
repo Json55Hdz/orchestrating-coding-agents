@@ -1,9 +1,9 @@
 # Scripts reference
 
-All scripts are PowerShell (Windows PowerShell 5.1, or PowerShell 7 `pwsh` on macOS/Linux) and live in `skills/orchestrating-coding-agents/scripts/`. Run them with:
+Every script exists twice: Windows PowerShell 5.1 (`*.ps1`) and bash + perl for macOS/Linux (`sh/*.sh`, `sh/*.pl`). They take the same flags. They live in `skills/orchestrating-coding-agents/scripts/`. Run them with:
 
 ```powershell
-sh <path>/run.sh <script> [args]     # picks powershell or pwsh for you
+sh <path>/run.sh <script> [args]     # picks the PowerShell or bash/perl implementation for you
 ```
 
 Claude calls them for you; this page is for when you want to drive them yourself.

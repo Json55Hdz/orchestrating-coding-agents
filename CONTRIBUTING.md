@@ -1,6 +1,6 @@
 # Contributing
 
-Thanks for helping. This plugin is small and PowerShell only (Windows PowerShell 5.1 and PowerShell 7 on macOS/Linux; keep scripts working on both, use `$IsWin`/helpers in `common.ps1`); keep it dependency-free (no Python, no npm packages at runtime).
+Thanks for helping. This plugin is small and has two implementations of the same scripts: Windows PowerShell 5.1 in `scripts/*.ps1`, and bash + perl for macOS/Linux in `scripts/sh/` (bash 3.2 compatible, core perl modules only). `scripts/run.sh` picks one by OS; a behaviour change must land in both. (The `.ps1` files still contain pwsh/Unix branches from an earlier iteration; `run.sh` no longer uses them.) keep it dependency-free (no Python, no npm packages at runtime).
 
 ## Layout
 

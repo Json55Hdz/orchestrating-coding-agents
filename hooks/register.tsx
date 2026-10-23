@@ -60,7 +60,7 @@ async function livePids($: any, win: boolean): Promise<Set<number> | null> {
       const pids = new Set<number>()
       for (const line of String(r.stdout).split('
 ')) {
-        const m = /^\s*(\d+)\s+.*pwsh/.exec(line)
+        const m = /^\s*(\d+)\s+(?:\S*\/)?(?:perl|bash|sh|zsh|pwsh)\s*$/.exec(line)
         if (m) pids.add(+m[1])
       }
 

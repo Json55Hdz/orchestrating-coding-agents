@@ -1,8 +1,12 @@
 # Changelog
 
+## 0.3.0
+
+- macOS/Linux no longer need PowerShell: bash + perl twins of every script in `scripts/sh/` (bash 3.2 and core perl modules only, nothing to install). `scripts/run.sh` picks the implementation by OS; Windows keeps PowerShell 5.1.
+
 ## 0.2.0
 
-- macOS and Linux support: scripts run on PowerShell 7 (`pwsh`); new `scripts/run.sh` picks the right shell automatically. Viewer opens in Terminal.app / the first terminal emulator found (or `-NoWindow`). Runs live in a private per-user dir (`$XDG_RUNTIME_DIR`, `$TMPDIR` or `~/.cache`, mode 700; never shared `/tmp`). The status band reads `agent-runs` there and checks workers with `ps`.
+- macOS and Linux support (first iteration, via PowerShell 7). Viewer opens in Terminal.app / the first terminal emulator found (or `-NoWindow`). Runs live in a private per-user dir (`$XDG_RUNTIME_DIR`, `$TMPDIR` or `~/.cache`, mode 700, fail-closed; never shared `/tmp`). The status band reads `agent-runs` there and checks workers with `ps`.
 
 ## 0.1.1 (2026-10-12)
 

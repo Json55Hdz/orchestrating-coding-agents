@@ -45,10 +45,13 @@ start_detached() {
   local o=$1 e=$2
   shift 2
   nohup "$@" >"$o" 2>"$e" </dev/null &
+  LAST_PID=$!
   disown 2>/dev/null
   return 0
 }
 
+# a free random port on loopback (20000-59999)
+pick_port() { perl -MIO::Socket::INET -e 'for (1..50) { my $p = 20000 + int(rand(40000)); my $s = IO::Socket::INET->new(Listen => 1, LocalAddr => "127.0.0.1", LocalPort => $p, ReuseAddr => 1) or next; print $p; exit }'; }
 urlenc() { perl -e 'print join "", map { /[A-Za-z0-9_.~-]/ ? $_ : sprintf("%%%02X", ord) } split //, $ARGV[0]' "$1"; }
 json_get() { JSON_KEY="$1" perl -MJSON::PP -0777 -ne 'my $j = eval { decode_json($_) } or exit; my $v = $j; for my $k (split /\./, $ENV{JSON_KEY}) { $v = ref $v eq "HASH" ? $v->{$k} : undef } print $v if defined $v'; }
 sha6() { if command -v shasum >/dev/null 2>&1; then shasum -a 1 | cut -c1-6; else sha1sum | cut -c1-6; fi; }

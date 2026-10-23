@@ -9,11 +9,12 @@ use FindBin; require "$FindBin::Bin/lib.pl";
 use JSON::PP; use Getopt::Long; use HTTP::Tiny; use POSIX qw(strftime);
 use Time::HiRes qw(time sleep gettimeofday);
 
-my ($RunDir, $Text, $Model, $Wait, $WaitSec, $Last, $Abort, $Port) = ('', '', '', 0, 300, 0, 0, 4096);
+my ($RunDir, $Text, $Model, $Wait, $WaitSec, $Last, $Abort, $Port) = ('', '', '', 0, 300, 0, 0, 0);
 Getopt::Long::Configure('ignore_case');
 GetOptions('RunDir=s' => \$RunDir, 'Text=s' => \$Text, 'Model=s' => \$Model, 'Wait!' => \$Wait, 'WaitSec=i' => \$WaitSec,
            'Last!' => \$Last, 'Abort!' => \$Abort, 'Port=i' => \$Port) or die "bad arguments\n";
 die "-RunDir is required\n" unless $RunDir;
+if (!$Port) { my $pf = slurp("$RunDir/port"); $Port = defined $pf && $pf =~ /(\d+)/ ? $1 : 4096 }   # dispatch records the run's server port
 die "-Port must be a number between 1 and 65535\n" unless $Port =~ /^\d{1,5}$/ && $Port >= 1 && $Port <= 65535;
 $| = 1;
 my $json = JSON::PP->new;

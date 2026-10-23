@@ -8,7 +8,7 @@
 here=$(cd "$(dirname "$0")" && pwd); . "$here/common.sh"
 
 Backend=; Dir=; BriefFile=; Name=task; Slot=main; Model=; Resume=0; NoWindow=0
-TimeoutMin=30; StallMin=10; IdleMin=15; Port=4096
+TimeoutMin=30; StallMin=10; IdleMin=15; Port=
 while [ $# -gt 0 ]; do
   case "$1" in
     -Backend) Backend=$2; shift 2 ;;
@@ -26,8 +26,10 @@ while [ $# -gt 0 ]; do
     *) die "unknown argument $1" ;;
   esac
 done
-case "$Port" in ''|*[!0-9]*) die "-Port must be a number between 1 and 65535" ;; esac
-[ "$Port" -ge 1 ] && [ "$Port" -le 65535 ] || die "-Port must be a number between 1 and 65535"
+if [ -n "$Port" ]; then
+  case "$Port" in *[!0-9]*) die "-Port must be a number between 1 and 65535" ;; esac
+  [ "$Port" -ge 1 ] && [ "$Port" -le 65535 ] || die "-Port must be a number between 1 and 65535"
+fi
 [ -n "$Model" ] || die "-Model is required. Run scripts/run.sh models, list the models to the user and ask which to use (see SKILL.md > Model selection). Never pick one yourself."
 case "$Backend" in opencode|agy) ;; *) die "-Backend must be opencode or agy" ;; esac
 [ -n "$Dir" ] && [ -n "$BriefFile" ] || die "-Dir and -BriefFile are required"
@@ -45,7 +47,7 @@ brief=$run/brief.md
 printf '%s\n' "$Dir" > "$run/target-dir"
 bc=$(git -C "$Dir" rev-parse HEAD 2>/dev/null) && [ -n "$bc" ] && printf '%s\n' "$bc" > "$run/base-commit"   # lets review diff against the pre-dispatch state
 prompt="Your full task brief is in the file $brief . Read it first, then do exactly what it says. Report in the format it asks for."
-url=http://127.0.0.1:$Port
+url=http://127.0.0.1:${Port:-4096}   # OpenCode resolves its own per-user port below
 slots=$runs/slots
 leaf=$(printf '%s' "$(basename "$Dir")" | tr -c 'A-Za-z0-9_-' '_')
 h6=$(printf '%s' "$Dir" | tr 'A-Z' 'a-z' | sha6)
@@ -100,11 +102,25 @@ server_up() {
 if [ "$Backend" = opencode ]; then
   command -v opencode >/dev/null 2>&1 || die "opencode not found on PATH. Install it (npm i -g opencode-ai)."
   command -v curl >/dev/null 2>&1 || die "curl is required"
-  if ! server_up; then
+  # The server is ours alone: a random port recorded in the private runs dir, reused only while the process we
+  # started is alive. An explicit -Port keeps the old behaviour (reuse whatever answers there).
+  if [ -z "$Port" ]; then
+    portf=$runs/server.port; pidf=$runs/server.pid
+    if [ -f "$portf" ] && [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null && ps -p "$(cat "$pidf")" -o args= 2>/dev/null | grep -q opencode; then
+      Port=$(cat "$portf")
+    else
+      Port=$(pick_port); [ -n "$Port" ] || die "could not find a free port"
+      url=http://127.0.0.1:$Port
+      start_detached "$run/server.log" "$run/server.err" opencode serve --port "$Port"
+      printf '%s\n' "$LAST_PID" > "$pidf"; printf '%s\n' "$Port" > "$portf"
+    fi
+    url=http://127.0.0.1:$Port
+  elif ! server_up; then
     start_detached "$run/server.log" "$run/server.err" opencode serve --port "$Port"
-    i=0; while [ $i -lt 30 ]; do server_up && break; sleep 0.5; i=$((i+1)); done
-    server_up || die "opencode serve did not come up on $url (see $run/server.log)"
   fi
+  i=0; while [ $i -lt 30 ]; do server_up && break; sleep 0.5; i=$((i+1)); done
+  server_up || die "opencode serve did not come up on $url (see $run/server.log)"
+  printf '%s\n' "$Port" > "$run/port"
   wargs+=(-Url "$url")
   sid=
   if [ $Resume = 0 ]; then   # create the session up front: the viewer knows its id from second zero

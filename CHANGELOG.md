@@ -3,6 +3,7 @@
 ## 0.3.0
 
 - macOS/Linux no longer need PowerShell: bash + perl twins of every script in `scripts/sh/` (bash 3.2 and core perl modules only, nothing to install). `scripts/run.sh` picks the implementation by OS; Windows keeps PowerShell 5.1.
+- macOS/Linux: the shared `opencode serve` now listens on a random per-user port (recorded with its pid in the private runs dir) and is reused only while that process is alive, so another local user can't squat the default 4096. An explicit `-Port` keeps the old behaviour. `review` skips symlinks; `-Port` is validated.
 
 ## 0.2.0
 

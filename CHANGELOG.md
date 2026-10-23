@@ -7,6 +7,7 @@ Fixes from a real-world run (macOS/Linux scripts; the Windows `.ps1` twins do no
 - OpenCode: `say` on a finished session clears `done.json` while the follow-up runs and records its outcome (turn, tokens, reply) when it ends, and `peek` reads the live steps from the server, so a follow-up no longer looks DONE.
 - OpenCode: a recorded server is restarted when opencode, its login (`auth.json`) or its config changed after it started (this caused "Model not found"); `-RestartServer` forces it. Viewers follow the new server URL instead of staying on the old one (`NOT_ATTACHED`).
 - `review` works in folders without git: dispatch snapshots the file list and review reports added/modified/deleted files.
+- macOS/Linux viewer: moving the mouse over a viewer window no longer prints escape-sequence garbage. The OpenCode TUI now gets the real terminal as stdin (a background job had `/dev/null`, so mouse events were never read and the tty echoed them) and the viewer resets mouse/alt-screen modes and disables echo after every TUI or worker ends.
 - `models` refreshes OpenCode's model list first (`opencode models --refresh`), so newly added models show up.
 
 ## 0.3.0

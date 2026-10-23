@@ -16,6 +16,15 @@ slots=$(runs_root)/slots
 key=$Backend-$Slot
 alive=$slots/$key.alive; cur=$slots/$key.cur; queue=$slots/$key.queue
 mkdir -p "$queue"
+
+# A TUI that is killed (a new task replaces it) or crashes leaves the terminal in mouse-reporting / alt-screen / bracketed-paste
+# mode, and every mouse move then prints escape-sequence garbage. Put the terminal back after each child ends.
+reset_term() {
+  printf '\033[?1000l\033[?1002l\033[?1003l\033[?1005l\033[?1006l\033[?1015l\033[?1004l\033[?2004l\033[?1049l\033[?25h\033[<u'
+  stty sane 2>/dev/null
+  stty -echo 2>/dev/null   # idle viewer: never echo stray input
+}
+reset_term
 printf '\033]0;[%s] %s  (persistent viewer)\007' "$Backend" "$Slot"
 echo $$ > "$alive"
 trap 'rm -f "$alive"' EXIT
@@ -30,15 +39,22 @@ if [ "$Backend" = opencode ]; then
       if [ -n "$raw" ] && [ "$raw" != "$seen" ]; then
         seen=$raw
         [ -n "$child" ] && kill -0 "$child" 2>/dev/null && stop_tree "$child"
+        reset_term
         sess=$(printf '%s\n' "$raw" | sed -n 1p); tdir=$(printf '%s\n' "$raw" | sed -n 2p)
         turl=$(printf '%s\n' "$raw" | sed -n 5p); [ -n "$turl" ] || turl=$Url
         clear
-        opencode attach "$turl" --dir "$tdir" -s "$sess" &
+        # a background job gets stdin=/dev/null: the TUI would enable mouse reporting but never read the events,
+        # and the tty would echo every mouse move as garbage. Hand it the real terminal.
+        if { : </dev/tty; } 2>/dev/null; then
+          opencode attach "$turl" --dir "$tdir" -s "$sess" </dev/tty &
+        else
+          opencode attach "$turl" --dir "$tdir" -s "$sess" &
+        fi
         child=$!; announced=0
       fi
     fi
     if [ -n "$child" ] && ! kill -0 "$child" 2>/dev/null && [ $announced = 0 ]; then
-      clear; echo "TUI closed. Waiting for the next task..."; announced=1
+      reset_term; clear; echo "TUI closed. Waiting for the next task..."; announced=1
     fi
     sleep 0.7
   done
@@ -52,6 +68,7 @@ else
     rm -f "$job"
     clear
     perl "$here/worker.pl" "${wargs[@]}" || echo "worker crashed"
+    reset_term
     echo
     echo "Waiting for the next task..."
   done

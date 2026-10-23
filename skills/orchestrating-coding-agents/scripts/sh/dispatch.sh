@@ -93,6 +93,7 @@ ensure_viewer() {
   while [ $i -lt 40 ]; do viewer_alive && { VIEWER=opened; return; }; sleep 0.5; i=$((i+1)); done
 }
 
+server_wait() { local i=0; while [ $i -lt 30 ]; do server_up && return; sleep 0.5; i=$((i+1)); done; }
 server_up() {
   local c
   c=$(curl -s -o /dev/null -m 2 -w '%{http_code}' "$url/" 2>/dev/null)
@@ -106,19 +107,28 @@ if [ "$Backend" = opencode ]; then
   # started is alive. An explicit -Port keeps the old behaviour (reuse whatever answers there).
   if [ -z "$Port" ]; then
     portf=$runs/server.port; pidf=$runs/server.pid
-    if [ -f "$portf" ] && [ -f "$pidf" ] && kill -0 "$(cat "$pidf")" 2>/dev/null && ps -p "$(cat "$pidf")" -o args= 2>/dev/null | grep -q opencode; then
-      Port=$(cat "$portf")
+    spid=; sport=
+    [ -f "$pidf" ] && spid=$(cat "$pidf"); [ -f "$portf" ] && sport=$(cat "$portf")
+    if [ -n "$spid" ] && [ -n "$sport" ] && kill -0 "$spid" 2>/dev/null \
+       && ps -p "$spid" -o args= 2>/dev/null | grep -Eq "opencode serve --port $sport( |$)" && listener_owned "$spid" "$sport"; then
+      Port=$sport
     else
+      rm -f "$pidf" "$portf"   # stale or unverifiable record: never trust it (a still-running old server is left alone)
       Port=$(pick_port); [ -n "$Port" ] || die "could not find a free port"
       url=http://127.0.0.1:$Port
       start_detached "$run/server.log" "$run/server.err" opencode serve --port "$Port"
       printf '%s\n' "$LAST_PID" > "$pidf"; printf '%s\n' "$Port" > "$portf"
+      server_wait
+      if ! listener_owned "$LAST_PID" "$Port"; then
+        stop_tree "$LAST_PID"; rm -f "$pidf" "$portf"
+        die "port $Port is held by a process that is not our opencode server; refusing to use it (retry)"
+      fi
     fi
     url=http://127.0.0.1:$Port
   elif ! server_up; then
     start_detached "$run/server.log" "$run/server.err" opencode serve --port "$Port"
   fi
-  i=0; while [ $i -lt 30 ]; do server_up && break; sleep 0.5; i=$((i+1)); done
+  server_wait
   server_up || die "opencode serve did not come up on $url (see $run/server.log)"
   printf '%s\n' "$Port" > "$run/port"
   wargs+=(-Url "$url")

@@ -50,6 +50,27 @@ start_detached() {
   return 0
 }
 
+# pid plus all its descendants
+tree_pids() {
+  local p=$1 k
+  echo "$p"
+  for k in $(pgrep -P "$p" 2>/dev/null); do tree_pids "$k"; done
+}
+
+# true when every process listening on the loopback port belongs to pid's tree (lsof, else ss; skipped if neither exists)
+listener_owned() {
+  local pid=$1 port=$2 lp mine x
+  if command -v lsof >/dev/null 2>&1; then lp=$(lsof -nP -iTCP:"$port" -sTCP:LISTEN -t 2>/dev/null)
+  elif command -v ss >/dev/null 2>&1; then lp=$(ss -ltnpH "sport = :$port" 2>/dev/null | grep -o 'pid=[0-9]*' | cut -d= -f2)
+  else return 0; fi
+  [ -n "$lp" ] || return 1
+  mine=" $(tree_pids "$pid" | tr '\n' ' ') "
+  for x in $lp; do
+    case "$mine" in *" $x "*) ;; *) return 1 ;; esac
+  done
+  return 0
+}
+
 # a free random port on loopback (20000-59999)
 pick_port() { perl -MIO::Socket::INET -e 'for (1..50) { my $p = 20000 + int(rand(40000)); my $s = IO::Socket::INET->new(Listen => 1, LocalAddr => "127.0.0.1", LocalPort => $p, ReuseAddr => 1) or next; print $p; exit }'; }
 urlenc() { perl -e 'print join "", map { /[A-Za-z0-9_.~-]/ ? $_ : sprintf("%%%02X", ord) } split //, $ARGV[0]' "$1"; }

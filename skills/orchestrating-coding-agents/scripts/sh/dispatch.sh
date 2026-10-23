@@ -26,6 +26,8 @@ while [ $# -gt 0 ]; do
     *) die "unknown argument $1" ;;
   esac
 done
+case "$Port" in ''|*[!0-9]*) die "-Port must be a number between 1 and 65535" ;; esac
+[ "$Port" -ge 1 ] && [ "$Port" -le 65535 ] || die "-Port must be a number between 1 and 65535"
 [ -n "$Model" ] || die "-Model is required. Run scripts/run.sh models, list the models to the user and ask which to use (see SKILL.md > Model selection). Never pick one yourself."
 case "$Backend" in opencode|agy) ;; *) die "-Backend must be opencode or agy" ;; esac
 [ -n "$Dir" ] && [ -n "$BriefFile" ] || die "-Dir and -BriefFile are required"

@@ -40,7 +40,9 @@ fi
   printf '%s\n' "$untracked" | while IFS= read -r u; do
     [ -n "$u" ] || continue
     p=$Dir/$u
-    if [ -f "$p" ] && [ "$(wc -c < "$p")" -lt 204800 ]; then
+    if [ -L "$p" ]; then
+      echo "# (skipped untracked: $u - symlink to $(readlink "$p"))"
+    elif [ -f "$p" ] && [ "$(wc -c < "$p")" -lt 204800 ]; then
       printf 'diff --git a/%s b/%s\nnew file\n--- /dev/null\n+++ b/%s\n' "$u" "$u" "$u"
       sed 's/^/+/' "$p"
     else

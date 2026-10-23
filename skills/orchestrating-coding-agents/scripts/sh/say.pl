@@ -14,6 +14,7 @@ Getopt::Long::Configure('ignore_case');
 GetOptions('RunDir=s' => \$RunDir, 'Text=s' => \$Text, 'Model=s' => \$Model, 'Wait!' => \$Wait, 'WaitSec=i' => \$WaitSec,
            'Last!' => \$Last, 'Abort!' => \$Abort, 'Port=i' => \$Port) or die "bad arguments\n";
 die "-RunDir is required\n" unless $RunDir;
+die "-Port must be a number between 1 and 65535\n" unless $Port =~ /^\d{1,5}$/ && $Port >= 1 && $Port <= 65535;
 $| = 1;
 my $json = JSON::PP->new;
 my $isAgy = -d "$RunDir/inbox";
